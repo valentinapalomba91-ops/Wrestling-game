@@ -11,11 +11,20 @@
 
 </head>
 <body>
+    <div id="name-input-modal" class="modal-overlay show">
+        <div class="modal-content">
+            <h3 class="mb-3">Inserisci il tuo Nickname da Wrestler</h3>
+            <input type="text" id="player-nickname" class="form-control mb-3" placeholder="Es: The Rock">
+            <button id="join-game-btn" class="btn btn-primary">Entra nel Ring</button>
+        </div>
+    </div>
+    
     <header>
         <h1>Wrestling Board Game 🏆</h1>
-        <div>
-            <button id="audio-toggle-btn" class="dice-btn">🔇 Muta</button>
-            <button id="roll-dice-btn" class="dice-btn">Tira Dado!</button>
+        <div class="header-controls">
+            <div id="my-player-info"></div> 
+            <button id="audio-toggle-btn" class="dice-btn">🔊 Muta</button>
+            <button id="roll-dice-btn" class="dice-btn" disabled>Tira Dado!</button>
         </div>
     </header>
 
@@ -24,16 +33,21 @@
             <h2>Stato Partita</h2>
             <div id="player-status">In attesa di giocatori...</div>
             <p>Dado: <span id="dice-result">0</span></p>
-            <div id="message-box" class="mt-3"></div>
+            
+            <div id="main-status-message" class="alert alert-info mt-2">In attesa di giocatori...</div>
+
+            <div id="log-container" class="log-container">
+                <div class="log-title">Cronologia Eventi</div>
+                <div id="message-box" class="mt-1"></div> </div>
         </section>
 
         <section id="board-container">
             <div id="board">
-                </div>
+            </div>
         </section>
     </main>
 
-    <div id="card-modal" class="modal">
+    <div id="card-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 id="card-name">Carta Speciale!</h2>
             <p id="card-text"></p>
@@ -42,7 +56,7 @@
         </div>
     </div>
 
-    <div id="win-modal" class="modal">
+    <div id="win-modal" class="modal-overlay">
         <div class="modal-content winner-bg">
             <h2>CONGRATULAZIONI!</h2>
             <p id="winner-message" style="font-size: 1.5em;"></p>
@@ -58,30 +72,37 @@
         const socket = io();
         const TOTAL_CELLS = 100;
 
+        // 💥 NUOVI ELEMENTI UI
+        const nameInputModal = document.getElementById('name-input-modal');
+        const playerNicknameInput = document.getElementById('player-nickname');
+        const joinGameBtn = document.getElementById('join-game-btn');
+        const logContainer = document.getElementById('log-container');
+        const myPlayerInfo = document.getElementById('my-player-info');
+        const mainStatusMessage = document.getElementById('main-status-message'); // 💥 NUOVO
+
+        // Elementi UI esistenti
         const board = document.getElementById('board');
         const rollDiceBtn = document.getElementById('roll-dice-btn');
         const diceResult = document.getElementById('dice-result');
         const playerStatus = document.getElementById('player-status');
         const messageBox = document.getElementById('message-box');
-        
         const cardModal = document.getElementById('card-modal');
         const resolveCardBtn = document.getElementById('resolve-card-btn');
         const cardName = document.getElementById('card-name');
         const cardText = document.getElementById('card-text');
         const cardEffectDesc = document.getElementById('card-effect-desc');
-        
         const winModal = document.getElementById('win-modal');
         const winnerMessage = document.getElementById('winner-message');
+        const audioToggleBtn = document.getElementById('audio-toggle-btn');
+
 
         let boardInitialized = false;
         let lastGameState = null;
         let isWaitingForAnimation = false;
+        let myPlayerName = ''; 
 
         // Variabili audio
-        const audioToggleBtn = document.getElementById('audio-toggle-btn');
         let audioEnabled = true;
-
-        // 🔊 AUDIO AGGIORNATO CON I TUOI NOMI FILE
         const sounds = {
             diceRoll: new Audio('/dado.mp3'),
             cardDraw: new Audio('/card.wav'),
@@ -89,7 +110,6 @@
             win: new Audio('/victory.mp3')
         };
         
-        // Imposta i volumi
         sounds.diceRoll.volume = 0.5;
         sounds.cardDraw.volume = 0.7;
         sounds.move.volume = 0.3;
@@ -98,7 +118,7 @@
         function playSound(soundKey) {
             if (audioEnabled) {
                 const sound = sounds[soundKey];
-                sound.currentTime = 0; // Resetta e riavvia
+                sound.currentTime = 0;
                 sound.play().catch(e => console.error("Audio error:", e));
             }
         }
@@ -107,32 +127,34 @@
             audioEnabled = !audioEnabled;
             audioToggleBtn.textContent = audioEnabled ? '🔊 Muta' : '🔇 Audio ON';
             if (!audioEnabled) {
-                 Object.values(sounds).forEach(s => s.pause());
+                Object.values(sounds).forEach(s => s.pause());
             }
         });
 
+        // 💥 Funzione per l'offset delle pedine
+        const PAWN_OFFSETS = [
+            { x: 0, y: 0 },         // Posizione base (centro)
+            { x: -5, y: -5 },       // Offset 1: in alto a sinistra
+            { x: 5, y: 5 },         // Offset 2: in basso a destra
+            { x: -5, y: 5 },        // Offset 3: in basso a sinistra
+            { x: 5, y: -5 }         // Offset 4: in alto a destra
+        ];
+
         // --------------------------------------------------
-        // 🧩 LOGICA LAYOUT A SERPENTE (CRUCIALE!)
+        // 🧩 LOGICA LAYOUT A SERPENTE (INVARIATA)
         // --------------------------------------------------
 
-        /**
-         * Calcola l'ordine effettivo della cella per il layout a serpente.
-         * Le righe pari devono avere l'ordine invertito.
-         */
+        /** Calcola l'ordine effettivo della cella per il layout a serpente. */
         function getCellIndex(cellNumber) {
             const size = 10;
             const row = Math.ceil(cellNumber / size);
             const isOddRow = row % 2 !== 0;
 
             if (isOddRow) {
-                // Righe dispari (1, 3, 5, ...): Ordine normale
                 return cellNumber;
             } else {
-                // Righe pari (2, 4, 6, ...): Ordine inverso (per il serpente)
-                // Formula: (Fine riga + Inizio riga) - cellNumber
                 const startOfRow = (row - 1) * size + 1;
                 const endOfRow = row * size;
-                
                 return endOfRow + startOfRow - cellNumber;
             }
         }
@@ -147,7 +169,6 @@
                 cell.className = 'cell';
                 cell.id = `cell-${i}`;
                 
-                // ✨ NUOVO: Aggiungi lo span per il numero (per le caselle tonde)
                 const cellNumber = document.createElement('span');
                 cellNumber.className = 'cell-number';
                 cellNumber.textContent = i;
@@ -165,7 +186,6 @@
                     cellNumber.textContent = 'START';
                 }
                 
-                // Applica l'ordine a serpente
                 const index = getCellIndex(i);
                 cell.style.order = index; 
                 fragment.appendChild(cell);
@@ -178,18 +198,45 @@
         // 🚀 ANIMAZIONI E MOVIMENTO
         // --------------------------------------------------
         
+        /** Muove la pedina nel CSS alla posizione finale della casella, applicando l'offset. */
+        function movePawnToCell(pawn, cellNumber, playerIndexOnCell) {
+            const cell = document.getElementById(`cell-${cellNumber}`);
+            if (!cell) return;
+
+            const cellRect = cell.getBoundingClientRect();
+            const boardRect = board.getBoundingClientRect();
+            
+            // Calcola la posizione centrale della casella rispetto al tabellone
+            let x = cellRect.left - boardRect.left + (cellRect.width / 2);
+            let y = cellRect.top - boardRect.top + (cellRect.height / 2);
+
+            // APPLICA OFFSET: usa l'indice del giocatore su quella cella
+            const offsetIndex = (playerIndexOnCell !== undefined) ? (playerIndexOnCell % PAWN_OFFSETS.length) : 0;
+            const offset = PAWN_OFFSETS[offsetIndex];
+
+            // Applica l'offset in pixel
+            x += offset.x;
+            y += offset.y;
+
+            // Il transform muove prima al centro (x, y) e poi lo sposta indietro di metà dimensione pedina (-50%, -50%)
+            pawn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+        }
+
         /** Esegue l'animazione di movimento su un percorso di caselle */
-        function animateMove(playerId, path, finalPosition, highlightClass = 'highlight') {
+        function animateMove(playerId, path, finalPosition, allPlayers) {
             const pawn = document.getElementById(`pawn-${playerId}`);
             const durationPerCell = 150; 
             let delay = 0;
 
+            // Trova l'indice della pedina sulla casella finale per l'offset
+            const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
+            const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
+
             return new Promise(resolve => {
-                // Se non c'è percorso, risolvi immediatamente
                 if (path.length === 0) {
-                     movePawnToCell(pawn, finalPosition); // Muovi direttamente alla fine
-                     resolve();
-                     return;
+                    movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
+                    resolve();
+                    return;
                 }
 
                 path.forEach((cellNumber, index) => {
@@ -199,30 +246,33 @@
                     setTimeout(() => {
                         const cell = document.getElementById(`cell-${cellNumber}`);
                         if (cell) {
-                            cell.classList.add(highlightClass);
-                            playSound('move'); // 🔊 Play sound 'pedina.wav'
+                            cell.classList.add('highlight');
+                            playSound('move');
                         }
-                    }, delay - 50); // Evidenzia leggermente prima di muoversi
+                    }, delay - 50);
 
                     // 2. Muovi la pedina
                     setTimeout(() => {
-                        movePawnToCell(pawn, cellNumber);
+                        // Per i passi intermedi, usiamo l'offset 0 (centro)
+                        movePawnToCell(pawn, cellNumber, 0);
                         
                         // Rimuovi l'evidenziazione dalla cella precedente
                         if (index > 0) {
                             const prevCell = document.getElementById(`cell-${path[index-1]}`);
                             if (prevCell) {
-                                prevCell.classList.remove(highlightClass);
+                                prevCell.classList.remove('highlight');
                             }
                         }
                         
                         // Alla fine dell'animazione
                         if (index === path.length - 1) {
-                            // Rimuovi l'evidenziazione dalla cella finale
+                            // Muovi alla posizione finale con l'offset corretto
+                            movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
+
                             setTimeout(() => {
                                 const finalCell = document.getElementById(`cell-${cellNumber}`);
                                 if (finalCell) {
-                                    finalCell.classList.remove(highlightClass);
+                                    finalCell.classList.remove('highlight');
                                 }
                                 resolve();
                             }, durationPerCell); 
@@ -232,39 +282,23 @@
             });
         }
 
-        /** Muove la pedina nel CSS alla posizione finale della casella */
-        function movePawnToCell(pawn, cellNumber) {
-            const cell = document.getElementById(`cell-${cellNumber}`);
-            if (!cell) return;
-
-            // Determina la posizione per l'offset della pedina (multiplayer)
-            const cellRect = cell.getBoundingClientRect();
-            const boardRect = board.getBoundingClientRect();
-
-            // Calcola l'offset relativo al tabellone
-            const x = cellRect.left - boardRect.left + (cellRect.width / 2);
-            const y = cellRect.top - boardRect.top + (cellRect.height / 2);
-
-            pawn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-        }
-
         // --------------------------------------------------
         // 🔄 GESTIONE AGGIORNAMENTI SOCKET.IO
         // --------------------------------------------------
 
         socket.on('game state update', async (state) => {
             lastGameState = state;
-            isWaitingForAnimation = false; // Riacconsenti il tiro del dado
+            isWaitingForAnimation = false;
 
-            // Inizializzazione tabellone
+            // 1. Inizializzazione tabellone
             if (!boardInitialized) {
                 buildBoard(state.cardDrawCells);
             }
             
-            // Creazione/Aggiornamento pedine
+            // 2. Creazione/Aggiornamento pedine
             updatePawns(state.players);
             
-            // Aggiorna lo stato dei giocatori e del turno
+            // 3. Aggiorna lo stato dei giocatori e del turno
             updateStatus(state);
             
             let moveFinishedPromise = Promise.resolve();
@@ -272,17 +306,22 @@
 
             if (state.moveResult) {
                 isWaitingForAnimation = true; 
-                // 1. Anima il tiro del dado
+                
+                // 3a. Logga il tiro del dado
+                logEvent(`**${state.moveResult.playerName}** tira un **${state.moveResult.diceRoll}**.`, 'dice');
+
+                // 3b. Anima il tiro del dado
                 diceResult.textContent = state.moveResult.diceRoll;
                 diceResult.classList.add('shake');
                 setTimeout(() => diceResult.classList.remove('shake'), 500);
-                playSound('diceRoll'); // 🔊 Play sound 'dado.mp3'
+                playSound('diceRoll');
 
-                // 2. Anima il movimento della pedina
+                // 3c. Anima il movimento della pedina
                 moveFinishedPromise = animateMove(
                     state.moveResult.playerId, 
                     state.moveResult.path, 
-                    state.moveResult.finalPosition
+                    state.moveResult.finalPosition,
+                    state.players
                 );
                 
                 cardEvent = state.moveResult.event;
@@ -290,73 +329,100 @@
             
             await moveFinishedPromise;
             
-            // 3. Gestione Eventi (Vittoria o Carta)
+            // 4. Gestione Eventi (Vittoria o Carta)
             if (cardEvent) {
                 if (cardEvent.type === 'win') {
-                    showWin(state.players.find(p => p.id === state.moveResult.playerId)); // 🔊 Play sound 'victory.mp3'
+                    showWin(state.players.find(p => p.id === state.moveResult.playerId)); 
+                    logEvent(`**${state.moveResult.playerName}** raggiunge la fine e vince! 🏆`, 'win');
                 } else if (cardEvent.type === 'card') {
-                    showCardModal(cardEvent.data); // 🔊 Play sound 'card.wav'
+                    showCardModal(cardEvent.data);
+                    logEvent(`**${state.moveResult.playerName}** pesca una carta: **${cardEvent.data.name}**`, 'card');
                 }
             }
             
-            // Rimuovi moveResult per evitare animazioni ripetute
+            // Pulisci il moveResult per evitare di rianimare/riloggare al prossimo update
             state.moveResult = null; 
             
-            // Aggiorna nuovamente lo stato UI dopo le animazioni
             isWaitingForAnimation = false; 
             updateStatus(state);
         });
 
         socket.on('card effect update', async (data) => {
             isWaitingForAnimation = true;
+            
+            if (data.logMessage) { // Logga l'effetto applicato
+                logEvent(data.logMessage, 'effect');
+            }
 
-            // Aggiorna lo stato dei giocatori in base a playerUpdates (movimenti dovuti alla carta)
             if (data.playerUpdates && data.playerUpdates.length > 0) {
-                // Crea una lista di promesse di animazione
                 const movePromises = data.playerUpdates.map(update => {
-                    const highlight = data.cascadedCard ? 'highlight-card' : 'highlight';
-                    // Nota: il suono 'move' viene chiamato all'interno di animateMove
-                    return animateMove(update.id, update.path, update.newPos, highlight);
+                    // Troviamo il giocatore aggiornato nell'ultimo stato per la posizione finale corretta
+                    const playerAfterMove = lastGameState.players.find(p => p.id === update.id);
+                    const newPos = playerAfterMove ? playerAfterMove.position : update.newPos;
+
+                    return animateMove(update.id, update.path, newPos, lastGameState.players);
                 });
                 
                 await Promise.all(movePromises);
                 
-                // Aggiorna la posizione visiva finale di tutte le pedine
-                data.playerUpdates.forEach(update => {
-                    const pawn = document.getElementById(`pawn-${update.id}`);
-                    if (pawn) movePawnToCell(pawn, update.newPos);
-                });
+                // Ricalcola gli offset finali per la posizione di arrivo
+                updatePawns(lastGameState.players);
             }
 
-            // 1. Gestione Vittoria
             if (data.win) {
                 const winner = lastGameState.players.find(p => p.id === data.win);
                 showWin(winner);
+                logEvent(`**${winner.name}** vince grazie all'effetto della carta! 🏆`, 'win');
                 isWaitingForAnimation = false;
                 return;
             }
             
-            // 2. Gestione Carta a Cascata
             if (data.cascadedCard) {
-                isWaitingForAnimation = false; // La cascata non blocca la UI (la modale lo fa)
+                isWaitingForAnimation = false;
                 showCardModal(data.cascadedCard.card);
+                logEvent(`L'effetto attiva un'altra carta: **${data.cascadedCard.card.name}**`, 'card');
                 return;
             }
             
-            // 3. Gestione Turno Extra
             if (data.extraTurn) { 
-                showMessage("Turno Extra! Tira di nuovo.");
+                logEvent(`**${lastGameState.players.find(p => p.id === lastGameState.currentPlayerID).name}** ottiene un **turno extra**!`, 'bonus');
+                mainStatusMessage.textContent = "Turno Extra! Tira di nuovo.";
             }
             
             isWaitingForAnimation = false;
-            updateStatus(lastGameState); // Forziamo l'aggiornamento per riattivare il pulsante
+            updateStatus(lastGameState);
         });
 
         // --------------------------------------------------
-        // 🔨 FUNZIONI DI SUPPORTO UI
+        // 🔨 FUNZIONI DI SUPPORTO UI E LOG
         // --------------------------------------------------
+        
+        /** Aggiunge un messaggio al log della partita */
+        function logEvent(message, type = 'general') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`; 
+            entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`; // Usiamo innerHTML per il grassetto
+
+            // Aggiunge l'entry in cima al messageBox (per vedere l'ultima azione)
+            messageBox.prepend(entry); 
+            
+            // Mantiene il log scrollato in alto
+            logContainer.scrollTop = 0; 
+
+            // Mantiene un limite di messaggi
+            if (messageBox.children.length > 20) {
+                messageBox.removeChild(messageBox.lastChild);
+            }
+        }
 
         function updatePawns(players) {
+            // Raggruppa le pedine per casella per calcolare l'offset
+            const positions = {};
+            players.forEach(p => {
+                positions[p.position] = positions[p.position] || [];
+                positions[p.position].push(p);
+            });
+
             players.forEach(player => {
                 let pawn = document.getElementById(`pawn-${player.id}`);
                 
@@ -364,113 +430,153 @@
                     pawn = document.createElement('div');
                     pawn.id = `pawn-${player.id}`;
                     pawn.className = 'pawn';
-                    pawn.textContent = player.symbol;
+                    pawn.innerHTML = `<span class="pawn-symbol">${player.symbol}</span><span class="pawn-name">${player.name}</span>`;
                     board.appendChild(pawn);
                 }
                 
-                // Evidenzia la pedina del giocatore di turno
+                // Aggiorna il colore e la classe di turno
+                pawn.style.backgroundColor = player.color;
+                pawn.style.zIndex = 10 + player.position; 
+                pawn.classList.remove('active-pawn');
+
                 if (lastGameState && player.id === lastGameState.currentPlayerID) {
-                    pawn.style.zIndex = 100;
-                    pawn.style.fontSize = '2em';
-                } else {
-                    pawn.style.zIndex = 10 + players.length - player.position; // Profondità
-                    pawn.style.fontSize = '1.5em';
+                    pawn.classList.add('active-pawn');
+                    pawn.style.zIndex = 100; 
                 }
                 
-                // Assicura che la pedina sia posizionata correttamente (anche all'inizio/reset)
-                movePawnToCell(pawn, player.position);
+                // Calcola l'indice del giocatore sulla casella per l'offset
+                const playersOnCell = positions[player.position];
+                const playerIndexOnCell = playersOnCell.findIndex(p => p.id === player.id);
+
+                // Posiziona la pedina con l'offset
+                movePawnToCell(pawn, player.position, playerIndexOnCell);
             });
         }
 
         function updateStatus(state) {
             const currentPlayer = state.players.find(p => p.id === state.currentPlayerID);
-            
-            if (state.game_over) {
-                 playerStatus.innerHTML = `<strong>Partita Terminata!</strong>`;
-                 rollDiceBtn.disabled = true;
-                 return;
+            const myPlayer = state.players.find(p => p.id === socket.id);
+            const isWaitingForCard = cardModal.classList.contains('show');
+
+            // AGGIORNA LE INFORMAZIONI DEL MIO GIOCATORE
+            if (myPlayer) {
+                myPlayerInfo.innerHTML = `Sei: <span style="color: ${myPlayer.color}; font-weight: bold;">${myPlayer.name} ${myPlayer.symbol}</span>`;
             }
+
+            if (state.game_over) {
+                playerStatus.innerHTML = `<strong>Partita Terminata!</strong>`;
+                rollDiceBtn.disabled = true;
+                mainStatusMessage.textContent = "La partita è finita!";
+                mainStatusMessage.className = 'alert alert-danger mt-2';
+                return;
+            }
+            
+            // Rimuovi la classe 'shake' se presente (serve solo durante l'animazione)
+            diceResult.classList.remove('shake');
+
 
             if (currentPlayer) {
                 const isMyTurn = currentPlayer.id === socket.id;
                 
-                // Aggiorna lo stato del pulsante: Disabilitato se non è il mio turno O se c'è un'animazione in corso
-                rollDiceBtn.disabled = !isMyTurn || isWaitingForAnimation;
+                // Disabilita il dado se: non è il mio turno O è in corso un'animazione O sta aspettando una carta
+                rollDiceBtn.disabled = !isMyTurn || isWaitingForAnimation || isWaitingForCard;
 
-                // Aggiorna lo stato del turno
-                let statusText = `Turno di: <strong>${currentPlayer.symbol}</strong>`;
+                let statusText = `Turno di: <span style="color: ${currentPlayer.color}; font-weight: bold;">${currentPlayer.name} ${currentPlayer.symbol}</span>, Pos: ${currentPlayer.position}`;
                 if (currentPlayer.skippedTurns > 0) {
-                     statusText += ` (Salta ${currentPlayer.skippedTurns} turno/i)`;
+                    statusText += ` (Salta ${currentPlayer.skippedTurns} turno/i)`;
                 }
                 playerStatus.innerHTML = statusText;
                 
-                // Aggiorna il messaggio
-                if (isMyTurn) {
-                    showMessage("È il tuo turno! Tira il dado.");
-                } else {
-                    const myPlayer = state.players.find(p => p.id === socket.id);
-                    if (myPlayer && myPlayer.skippedTurns > 0) { // Controlla anche se esisti!
-                         showMessage(`Sei bloccato. Salterai ancora ${myPlayer.skippedTurns} turno/i.`);
+                mainStatusMessage.className = 'alert alert-info mt-2';
+                if (isWaitingForAnimation) {
+                    mainStatusMessage.textContent = "Movimento in corso...";
+                    mainStatusMessage.className = 'alert alert-warning mt-2';
+                } else if (isWaitingForCard) {
+                    mainStatusMessage.textContent = "Carta pescata! Risolvi l'effetto.";
+                    mainStatusMessage.className = 'alert alert-warning mt-2';
+                } else if (isMyTurn) {
+                    if (myPlayer && myPlayer.skippedTurns > 0) {
+                        mainStatusMessage.textContent = `Sei bloccato. Salterai ancora ${myPlayer.skippedTurns} turno/i.`;
                     } else {
-                         showMessage(`In attesa del turno di ${currentPlayer.symbol}...`);
+                        mainStatusMessage.textContent = "È il tuo turno! Tira il dado. 🎲";
+                        mainStatusMessage.className = 'alert alert-success mt-2';
                     }
+                } else {
+                    mainStatusMessage.textContent = `In attesa del turno di ${currentPlayer.name}...`;
                 }
             }
         }
-
-        function showMessage(text) {
-             messageBox.innerHTML = `<p>${text}</p>`;
-        }
         
         function showCardModal(card) {
-            playSound('cardDraw'); // 🔊 Play sound 'card.wav'
+            playSound('cardDraw');
             cardName.textContent = card.name;
             cardText.textContent = card.text;
             cardEffectDesc.textContent = card.effect_desc;
             
-            if (card.type === 'malus') {
-                cardName.style.color = '#ff3333';
-            } else if (card.type === 'bonus') {
-                cardName.style.color = '#00ff80';
-            } else {
-                cardName.style.color = 'gold';
-            }
+            // Imposta il colore del titolo in base al tipo di carta
+            cardName.style.color = card.type === 'malus' ? '#ff3333' : (card.type === 'bonus' ? '#00ff80' : 'gold');
             
             cardModal.classList.add('show');
             rollDiceBtn.disabled = true;
+            updateStatus(lastGameState); // Aggiorna lo stato per riflettere l'attesa della carta
             
-            // Gestione del pulsante di risoluzione
             resolveCardBtn.onclick = () => {
                 cardModal.classList.remove('show');
-                // Chiamiamo il server per applicare l'effetto della carta
+                isWaitingForAnimation = true; 
                 socket.emit('process card effect request', card);
             };
         }
         
         function showWin(winner) {
-            playSound('win'); // 🔊 Play sound 'victory.mp3'
-            winnerMessage.textContent = `${winner.symbol} ha vinto la Royal Rumble!`;
+            playSound('win');
+            winnerMessage.textContent = `${winner.name} ${winner.symbol} ha vinto la Royal Rumble!`;
             winModal.classList.add('show');
             rollDiceBtn.disabled = true;
         }
 
+        // --------------------------------------------------
+        // 🖱️ GESTIONE INTERAZIONE UTENTE E LOGIN
+        // --------------------------------------------------
+        
+        // Gestione del login
+        joinGameBtn.addEventListener('click', () => {
+            const nickname = playerNicknameInput.value.trim();
+            if (nickname.length > 2) {
+                myPlayerName = nickname;
+                nameInputModal.classList.remove('show');
+                // Invia il nome al server per essere aggiunto alla partita
+                socket.emit('join game', nickname);
+            } else {
+                alert("Inserisci un nickname di almeno 3 caratteri!");
+            }
+        });
 
-        // --------------------------------------------------
-        // 🖱️ GESTIONE INTERAZIONE UTENTE
-        // --------------------------------------------------
+        // Permetti di inviare il nome anche con Invio
+        playerNicknameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                joinGameBtn.click();
+            }
+        });
 
         rollDiceBtn.addEventListener('click', () => {
-            // Aggiungiamo un controllo per l'animazione in corso
             if (!rollDiceBtn.disabled && !isWaitingForAnimation) {
+                // Disabilita immediatamente per prevenire doppi click
+                rollDiceBtn.disabled = true; 
                 socket.emit('roll dice request');
             }
         });
 
-        // Inizializza il tabellone quando lo stato iniziale arriva
+        // Inizializza il tabellone quando lo stato iniziale arriva (dopo il login)
         socket.on('connect', () => {
-            if (lastGameState) {
-                updateStatus(lastGameState);
+             // Se mi riconnetto e ho già un nome, nascondo il modale
+            if (myPlayerName) {
+                nameInputModal.classList.remove('show');
+                // Invio il nome al server: il server deve gestire se è un rejoin o un nuovo player
+                socket.emit('join game', myPlayerName); 
+            } else {
+                nameInputModal.classList.add('show');
             }
+             // L'updateStatus verrà chiamato quando arriva lo stato del gioco dal server
         });
     </script>
 </body>

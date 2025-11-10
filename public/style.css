@@ -17,10 +17,13 @@ body {
     min-height: 100vh;
 }
 
-/* Intestazione e Controlli */
+/* ------------------------------------------------------------------ */
+/* 📢 HEADER E CONTROLLI */
+/* ------------------------------------------------------------------ */
+
 header {
     width: 100%;
-    max-width: 900px;
+    max-width: 1200px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -35,9 +38,24 @@ header {
 h1 {
     color: gold;
     text-shadow: 2px 2px 4px #000;
-    font-size: 2.5rem; /* Reso un po' flessibile */
+    font-size: 2.5rem;
 }
 
+.header-controls {
+    display: flex;
+    align-items: center;
+}
+
+/* Info sul giocatore nell'header */
+#my-player-info {
+    font-size: 1.1em;
+    font-weight: 500;
+    color: #fff;
+    margin-right: 20px;
+    white-space: nowrap;
+}
+
+/* Stile dei pulsanti principali (Dado, Audio) */
 .dice-btn, #audio-toggle-btn {
     padding: 12px 25px;
     font-size: 1.1em;
@@ -50,7 +68,6 @@ h1 {
     box-shadow: 0 4px 0 #990000;
     transition: background-color 0.1s, box-shadow 0.1s;
     margin-left: 10px;
-    /* ✨ Aggiunto: Unità flessibile per la dimensione */
     min-width: 100px; 
 }
 
@@ -69,14 +86,13 @@ h1 {
 }
 
 /* ------------------------------------------------------------------ */
-/* 🌐 LAYOUT PRINCIPALE - RESPOONSIVE: Passa da ROW (Desktop) a COLUMN (Mobile) */
+/* 🌐 LAYOUT PRINCIPALE: Board + Status */
 /* ------------------------------------------------------------------ */
 main {
     display: flex;
     gap: 20px;
     width: 100%;
     max-width: 1200px;
-    /* Default: affiancato per schermi grandi */
     flex-direction: row; 
 }
 
@@ -90,7 +106,7 @@ main {
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
     color: #f0f0f0;
     border: 1px solid #444;
-    order: 2; /* Inserito sotto la Board su Mobile */
+    order: 2;
 }
 
 #player-status {
@@ -109,7 +125,102 @@ main {
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
 }
 
-/* ♟️ Stile del Tabellone e Caselle a Serpente */
+/* Animazione per il dado */
+.shake { 
+    animation: shake 0.5s; 
+}
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
+
+/* 💥 NUOVO: Stile per il Messaggio di Stato Principale */
+#main-status-message {
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    border: 1px solid transparent;
+}
+
+/* Stili specifici per lo stato (riprendendo i colori Bootstrap) */
+.alert-info {
+    background-color: #0d6efd20;
+    color: #0d6efd;
+    border-color: #0d6efd;
+}
+.alert-success {
+    background-color: #19875420;
+    color: #198754;
+    border-color: #198754;
+}
+.alert-warning {
+    background-color: #ffc10720;
+    color: #ffc107;
+    border-color: #ffc107;
+}
+.alert-danger {
+    background-color: #dc354520;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 📜 LOG CONTAINER (Cronologia Partita) */
+/* ------------------------------------------------------------------ */
+
+.log-container {
+    max-height: 250px; 
+    overflow-y: auto; 
+    border: 1px solid #666;
+    padding: 10px;
+    background-color: #1a1a1a;
+    border-radius: 8px;
+    margin-top: 15px;
+    color: #ccc;
+    font-family: 'Roboto', sans-serif;
+}
+
+.log-title {
+    font-weight: bold;
+    color: #ffc107;
+    text-align: center;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+    font-family: 'Arial Black', Gadget, sans-serif;
+    text-transform: uppercase;
+}
+
+#message-box {
+    margin-top: 0;
+}
+
+.log-entry {
+    font-size: 0.85em;
+    margin: 5px 0; /* Aggiunto margine verticale per leggibilità */
+    line-height: 1.4;
+    padding-bottom: 2px;
+}
+
+/* Stili specifici per il tipo di evento (per chiarezza nel log) */
+.log-dice { color: #87ceeb; }
+.log-card { color: #ff6347; }
+.log-effect { color: #90ee90; }
+.log-win { 
+    color: #ffd700; 
+    font-weight: bold; 
+    border-top: 1px dashed gold; /* Linea per la vittoria */
+    padding-top: 5px;
+}
+
+/* ------------------------------------------------------------------ */
+/* ♟️ TABELLONE E PEDINE */
+/* ------------------------------------------------------------------ */
 
 /* Contenitore del Tabellone */
 #board-container {
@@ -118,7 +229,8 @@ main {
     padding: 10px;
     border-radius: 12px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-    order: 1; /* Inserito sopra il pannello su Mobile */
+    order: 1;
+    position: relative; 
 }
 
 #board {
@@ -152,7 +264,7 @@ main {
     position: absolute;
     width: 80%; 
     height: 80%;
-    border-radius: 50%; /* Forma tonda */
+    border-radius: 50%;
     background-color: #333;
     display: flex;
     justify-content: center;
@@ -164,11 +276,10 @@ main {
 .cell-number {
     position: relative; 
     z-index: 2;
-    top: auto;
-    left: auto;
-    font-size: 1em; /* Unità di misura flessibile */
+    font-size: 1em;
     font-weight: bold;
     color: gold; 
+    text-shadow: 1px 1px 2px #000; /* Leggibilità migliorata */
 }
 
 /* Caselle Speciali */
@@ -176,27 +287,62 @@ main {
 .end-cell::before { background-color: #ccac00; }
 .card-draw::before { background-color: #990000; }
 
-/* Stile della Pedina (Icone) */
+/* Evidenziazione */
+.highlight::before { 
+    box-shadow: 0 0 15px 7px #00ffff; 
+    background-color: #0077ff; 
+}
+
+/* Stile della Pedina (Pawn) per Nome e Simbolo */
 .pawn {
-    position: absolute;
-    font-size: 1.5em; 
-    line-height: 1;
+    position: absolute; 
+    width: 50px; 
+    height: 50px;
+    border-radius: 50%;
+    color: white;
+    text-align: center;
     z-index: 10;
-    transition: transform 0.15s ease-out; 
-    text-shadow: 0 0 5px #fff; 
+    cursor: pointer;
+    border: 3px solid rgba(0, 0, 0, 0.7);
+    box-sizing: border-box; 
+    
+    /* Abilita l'animazione smooth del movimento/offset */
+    transition: transform 0.2s ease-out, box-shadow 0.3s; 
+
+    /* LAYOUT INTERNO: Simbolo sopra il nome */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2px;
 }
 
-/* Animazioni e Modal (Nessuna modifica necessaria qui) */
-.highlight::before { box-shadow: 0 0 15px 7px #00ffff; background-color: #0077ff; }
-.highlight-card::before { box-shadow: 0 0 15px 7px #ff00ff; background-color: #8a2be2; }
-.shake { animation: shake 0.5s; }
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-5px); }
-    40%, 80% { transform: translateX(5px); }
+.pawn-symbol {
+    font-size: 1.4em; 
+    line-height: 1;
+    text-shadow: 0 0 5px #000;
 }
 
-.modal {
+.pawn-name {
+    font-size: 0.55em; 
+    line-height: 1;
+    font-weight: normal;
+    word-break: break-all;
+    max-width: 90%;
+}
+
+/* Evidenzia la pedina di turno */
+.active-pawn {
+    box-shadow: 0 0 15px 5px yellow;
+    transform: scale(1.1);
+    border-color: yellow;
+    z-index: 100 !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* 🃏 MODALI (Login, Card, Win) */
+/* ------------------------------------------------------------------ */
+.modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -209,7 +355,7 @@ main {
     z-index: 1000;
 }
 
-.modal.show {
+.modal-overlay.show {
     display: flex;
 }
 
@@ -222,6 +368,12 @@ main {
     max-width: 400px;
     box-shadow: 0 0 30px rgba(255, 0, 0, 0.7);
     border: 3px solid gold;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 .winner-bg {
@@ -229,9 +381,12 @@ main {
     color: #000;
 }
 
-.bonus { color: #00ff80; font-weight: bold; }
-.malus { color: #ff3333; font-weight: bold; }
-.effect-text { font-size: 0.9em; color: #ccc; margin-top: 10px; }
+.effect-text { 
+    font-size: 0.9em; 
+    color: #ccc; 
+    margin-top: 10px; 
+    font-style: italic;
+}
 
 
 /* ========================================================== */
@@ -243,23 +398,26 @@ main {
     
     /* 1. Layout Principale: Passa da affiancato a impilato */
     main {
-        flex-direction: column; /* Impila la Board e il Pannello */
+        flex-direction: column;
         gap: 15px;
+        align-items: center; 
     }
 
-    /* Board e Container: Occupano tutta la larghezza */
+    /* Board e Container: Occupa quasi tutta la larghezza per massimizzare lo spazio */
     #board-container {
-        flex: none; /* Rimuovi la flessibilità relativa */
-        width: 95vw; /* Occupa quasi tutta la larghezza del dispositivo */
-        order: 1; /* Il tabellone va per primo */
+        flex: none; 
+        width: 95vw; 
+        max-width: 95vw;
+        order: 1; 
     }
     
     /* Pannello di Stato: Occupa tutta la larghezza sotto la Board */
     #status-panel {
         flex: none;
         width: 95vw;
-        min-width: unset; /* Rimuovi la larghezza minima fissa */
-        order: 2; /* Il pannello va dopo */
+        max-width: 95vw;
+        min-width: unset;
+        order: 2;
     }
 
     /* 2. Intestazione: Impila titolo e controlli */
@@ -274,27 +432,34 @@ main {
         font-size: 1.8rem;
         margin-bottom: 10px;
     }
-    
-    /* Raggruppa i pulsanti se ci sono più controlli */
-    .controls {
-        display: flex;
-        justify-content: space-around;
-        width: 100%;
-    }
 
+    .header-controls {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+    }
+    
     .dice-btn, #audio-toggle-btn {
         padding: 8px 15px;
         font-size: 0.9em;
-        margin: 0 5px; /* Spazia leggermente i pulsanti */
+        margin-left: 5px;
     }
 
     /* 3. Tabellone: Riduci dimensione degli elementi interni */
     .cell-number {
-        font-size: 0.8em; /* Rimpicciolisci i numeri delle caselle */
+        font-size: 0.8em;
     }
     
+    /* Riduci dimensione visiva della pedina */
     .pawn {
-        font-size: 1.2em; /* Rimpicciolisci i token dei giocatori */
+        width: 40px; /* leggermente più piccole */
+        height: 40px;
+    }
+    .pawn-symbol {
+        font-size: 1.1em; 
+    }
+    .pawn-name {
+        font-size: 0.45em; /* ancora più piccolo per non sforare */
     }
     
     /* 4. Modal: Riduci la dimensione del contenuto del modal */
@@ -302,6 +467,10 @@ main {
         padding: 20px;
         max-width: 90%;
         font-size: 0.9em;
+    }
+    
+    .log-container {
+        max-height: 200px; /* Riduci l'altezza del log su mobile */
     }
 }
 
@@ -315,15 +484,34 @@ main {
         font-size: 1.5rem;
     }
     
+    .header-controls {
+        flex-wrap: wrap; 
+        justify-content: center;
+        gap: 5px; /* Spazio tra i pulsanti/info */
+    }
+
+    #my-player-info {
+        order: -1; 
+        width: 100%;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    
     /* Forzo i pulsanti a riempire lo spazio */
     .dice-btn, #audio-toggle-btn {
-        flex: 1; /* Ognuno prende metà spazio */
+        flex: 1;
         min-width: unset;
         font-size: 0.8em;
+        margin: 0;
     }
     
     /* Risultato del dado più piccolo */
     #dice-result {
         font-size: 3em !important;
+    }
+    
+    #board-container, #status-panel {
+        width: 100%;
+        max-width: 100%;
     }
 }
