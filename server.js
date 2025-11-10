@@ -146,7 +146,7 @@ const CARDS = [
         name: "Underdog from the Underground!", 
         text: "Sami Zayne è una brava persona che aiuta sempre il più svantaggiato. E poi è simpatico. Ucey.", 
         type: 'special', 
-        effect_desc: "Il giocatore più indietro avanza alla tua casella, tutti gli altri saltano un turno. (Tutti)", 
+        effect_desc: "Il giocatore più indietro avanza alla tua casella attuale, tutti gli altri saltano un turno. (Tutti)", 
         target_farthest_backward_to_self: true, 
         skip_all_others: true 
     },
@@ -533,7 +533,7 @@ function processCardEffect(card) {
     }
 
 
-    // --- 4. Controllo Carta a Cascata e Passaggio Turno ---
+    // --- 4. Controllo Carta a Cascata e Passaggio Turno (FIX: Gestione Casella 18) ---
     
     // Controlla se il giocatore corrente è stato mosso e atterra su una casella carta.
     if (!win && !card.move_all && !card.move_all_to_start) 
@@ -544,12 +544,21 @@ function processCardEffect(card) {
         if (playerMoved && CARD_DRAW_CELLS.includes(currentPlayer.position)) {
             // Se la carta attuale non è 'I lie, i cheat, I steal!' (che è già un effetto speciale)
             if (card.name !== "I lie, i cheat, I steal!") {
+                
+                let cascadedCardToDraw;
+                // 💥 CORREZIONE: Gestisce il caso speciale della casella 18 in cascata
+                if (currentPlayer.position === 18) {
+                    cascadedCardToDraw = CARDS.find(c => c.name === "I lie, i cheat, I steal!");
+                } else {
+                    cascadedCardToDraw = drawCard();
+                }
+
                 cascadedCard = {
-                    card: drawCard(),
+                    card: cascadedCardToDraw,
                     position: currentPlayer.position,
                     playerID: currentPlayer.id
                 };
-                extraTurn = false; 
+                extraTurn = false; // La cascata ha la precedenza sul turno extra
             }
         }
     }
