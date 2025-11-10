@@ -34,7 +34,8 @@
 
         let boardInitialized = false;
         let lastGameState = null;
-        let isWaitingForAnimation = false; // 🔑 CHIAVE: Stato che blocca il gioco
+        // 🔑 CHIAVE: Stato che blocca il gioco durante le animazioni di movimento.
+        let isWaitingForAnimation = false; 
         let myPlayerName = ''; 
 
         // Variabili audio
@@ -263,7 +264,7 @@
         });
 
         // ==========================================================
-        // 🔑 FIX: NUOVO LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO
+        // FIX: NUOVO LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO
         // ==========================================================
         socket.on('dice roll result', async (moveResult) => {
             // Lo stato isWaitingForAnimation è già impostato a TRUE dal click.
@@ -452,7 +453,7 @@
         function updateStatus(state) {
             const currentPlayer = state.players.find(p => p.id === state.currentPlayerID);
             const myPlayer = state.players.find(p => p.id === socket.id);
-            // 🔑 FIX: Determina se la modale è visibile in questo momento
+            // 🔑 FIX SCHERMATA BIANCA: Determina se la modale è visibile in questo momento
             const isWaitingForCard = cardModal.classList.contains('show');
 
             // AGGIORNA LE INFORMAZIONI DEL MIO GIOCATORE
@@ -524,7 +525,7 @@
             cardName.style.color = card.type === 'malus' ? '#ff3333' : (card.type === 'bonus' ? '#00ff80' : 'gold');
             
             cardModal.classList.add('show');
-            // 🔑 FIX: Disabilita il dado (updateStatus si occupa di questo grazie a isWaitingForCard)
+            // 🔑 FIX SCHERMATA BIANCA: Chiama updateStatus per bloccare il dado
             updateStatus(lastGameState); 
             
             resolveCardBtn.onclick = () => {
