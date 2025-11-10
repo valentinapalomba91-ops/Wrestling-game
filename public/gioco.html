@@ -303,7 +303,7 @@
             // 3. Aggiorna lo stato dei giocatori e del turno
             updateStatus(state);
             
-            // 4. AGGIORNAMENTO CRONOLOGIA EVENTI (IMPLEMENTAZIONE RICHIESTA)
+            // 4. AGGIORNAMENTO CRONOLOGIA EVENTI
             updateLog(state.gameLog);
 
             let moveFinishedPromise = Promise.resolve();
@@ -312,16 +312,13 @@
             if (state.moveResult) {
                 isWaitingForAnimation = true; 
                 
-                // 3a. Logga il tiro del dado (Questa logica rimane per l'integrazione con la cronologia)
-                // logEvent(`**${state.moveResult.playerName}** tira un **${state.moveResult.diceRoll}**.`, 'dice');
-
-                // 3b. Anima il tiro del dado
+                // 3a. Anima il tiro del dado
                 diceResult.textContent = state.moveResult.diceRoll;
                 diceResult.classList.add('shake');
                 setTimeout(() => diceResult.classList.remove('shake'), 500);
                 playSound('diceRoll');
 
-                // 3c. Anima il movimento della pedina
+                // 3b. Anima il movimento della pedina
                 moveFinishedPromise = animateMove(
                     state.moveResult.playerId, 
                     state.moveResult.path, 
@@ -338,10 +335,8 @@
             if (cardEvent) {
                 if (cardEvent.type === 'win') {
                     showWin(state.players.find(p => p.id === state.moveResult.playerId)); 
-                    // logEvent(`**${state.moveResult.playerName}** raggiunge la fine e vince! 🏆`, 'win'); // gestito dal server log
                 } else if (cardEvent.type === 'card') {
                     showCardModal(cardEvent.data);
-                    // logEvent(`**${state.moveResult.playerName}** pesca una carta: **${cardEvent.data.name}**`, 'card'); // gestito dal server log
                 }
             }
             
@@ -355,13 +350,6 @@
         socket.on('card effect update', async (data) => {
             isWaitingForAnimation = true;
             
-            // Il log viene aggiornato tramite 'game state update', ma qui abbiamo bisogno
-            // del log per sapere se c'è un messaggio specifico da stampare PRIMA dell'aggiornamento.
-            // Se il server invia un logMessage, lo logghiamo immediatamente.
-            // if (data.logMessage) { 
-            //     logEvent(data.logMessage, 'effect'); 
-            // }
-
             if (data.playerUpdates && data.playerUpdates.length > 0) {
                 const movePromises = data.playerUpdates.map(update => {
                     // Troviamo il giocatore aggiornato nell'ultimo stato per la posizione finale corretta
@@ -380,7 +368,6 @@
             if (data.win) {
                 const winner = lastGameState.players.find(p => p.id === data.win);
                 showWin(winner);
-                // logEvent(`**${winner.name}** vince grazie all'effetto della carta! 🏆`, 'win'); // gestito dal server log
                 isWaitingForAnimation = false;
                 return;
             }
@@ -388,14 +375,8 @@
             if (data.cascadedCard) {
                 isWaitingForAnimation = false;
                 showCardModal(data.cascadedCard.card);
-                // logEvent(`L'effetto attiva un'altra carta: **${data.cascadedCard.card.name}**`, 'card'); // gestito dal server log
                 return;
             }
-            
-            // if (data.extraTurn) { 
-            //     logEvent(`**${lastGameState.players.find(p => p.id === lastGameState.currentPlayerID).name}** ottiene un **turno extra**!`, 'bonus'); // gestito dal server log
-            //     mainStatusMessage.textContent = "Turno Extra! Tira di nuovo.";
-            // }
             
             isWaitingForAnimation = false;
             updateStatus(lastGameState);
@@ -416,9 +397,12 @@
                 // Usa la proprietà 'type' per applicare stili (es. log-dice, log-win)
                 logEntry.className = `log-entry log-${entry.type}`; 
                 
-                // Usa innerHTML per interpretare il grassetto (**) se lo usi nel server
+                // --- MODIFICA APPLICATA QUI ---
+                // Sostituisce il grassetto Markdown (**) con il tag HTML <strong>
+                let messageHTML = entry.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                
                 // Formato: [HH:MM:SS] Messaggio
-                logEntry.innerHTML = `[${entry.timestamp}] ${entry.message}`; 
+                logEntry.innerHTML = `[${entry.timestamp}] ${messageHTML}`; 
                 
                 // Prepend per mostrare i messaggi più recenti in cima
                 messageBox.prepend(logEntry);
@@ -478,7 +462,9 @@
             }
 
             if (state.game_over) {
+                // --- MODIFICA APPLICATA QUI ---
                 playerStatus.innerHTML = `<strong>Partita Terminata!</strong>`;
+                // --- MODIFICA APPLICATA QUI ---
                 rollDiceBtn.disabled = true;
                 mainStatusMessage.textContent = "La partita è finita!";
                 mainStatusMessage.className = 'alert alert-danger mt-2';

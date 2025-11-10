@@ -30,19 +30,19 @@ const PLAYER_SYMBOLS = ["⭐", "👑", "🐍", "🔥", "💪", "👊"];
 // 🃏 DEFINIZIONE DELLE CARTE SPECIALI (25 Carte)
 // ==========================================================
 const CARDS = [
-    // 1. 🟢 Carte Bonus e Avanzamento (3 Carte)
+    // 1. 🟢 Carte Bonus e Avanzamento (3 Carte) - INDIVIDUALI
     { 
         name: "Figure Four Leglock! WOOO!", 
         text: "Diventi parte della famiglia Flair e apprendi di diritto la Figure Four.", 
         type: 'bonus', 
-        effect_desc: "Avanzi di 2 caselle.", 
+        effect_desc: "Avanzi di 2 caselle. (Solo tu)", 
         move_steps: 2 
     },
     { 
         name: "Spear from Nowhere!", 
         text: "Roman Reigns ed Edge ti insegnano a fare una spear spettacolare!", 
         type: 'bonus', 
-        effect_desc: "Avanzi di 5 caselle.", 
+        effect_desc: "Avanzi di 5 caselle. (Solo tu)", 
         move_steps: 5 
     },
     { 
@@ -72,51 +72,51 @@ const CARDS = [
         name: "Pipe Bomb! L'anima di Cm Punk si reincarna in te.", 
         text: "Fai un promo della madonna (messa solo per par condicio).", 
         type: 'special', 
-        effect_desc: "Il giocatore più avanti retrocede alla tua casella attuale.", 
+        effect_desc: "Il giocatore più avanti retrocede alla tua casella attuale. (Tu e il più avanti)", 
         target_nearest_ahead_back_to_self: true 
     },
 
-    // 3. 🔴 Carte Malus e Retrocessione (6 Carte)
+    // 3. 🔴 Carte Malus e Retrocessione (6 Carte) - INDIVIDUALI
     { 
         name: "BOTCHONE!", 
         text: "Sin Cara si impossessa di te e Botchi qualsiasi cosa.", 
         type: 'malus', 
-        effect_desc: "Retrocedi di 3 caselle.", 
+        effect_desc: "Retrocedi di 3 caselle. (Solo tu)", 
         move_steps: -3 
     },
     { 
         name: "Il Judgment Day esiste ancora!", 
         text: "JD doveva esplodere mille anni fa, ma è ancora qui e nessuno sa perchè. In ogni caso decide di interferire nel tuo match a tuo sfavore.", 
         type: 'malus', 
-        effect_desc: "Retrocedi di 2 caselle.", 
+        effect_desc: "Retrocedi di 2 caselle. (Solo tu)", 
         move_steps: -2 
     },
     { 
         name: "Burn it Down!", 
         text: "Durante il tuo match parte la theme di Seth Rollins, che appare sullo stage vestito come una guardia svizzera che, in un moto di pazzia, ha tinto i vestiti di giallo, verde, arancione e viola fluo. Sopra indossa una tenda da doccia rossa con le paperelle e gli occhiali più grandi della sua faccia. Ride. Ti distrai, anzi, probabilmente ti accechi.", 
         type: 'malus', 
-        effect_desc: "Retrocedi di 1 casella.", 
+        effect_desc: "Retrocedi di 1 casella. (Solo tu)", 
         move_steps: -1 
     },
     { 
         name: "Cody inizia a ringraziare tutti!", 
         text: "Cody vince la coppa del nonno, fa un promo dove nomina tutta la sua famiglia e inizia a ringraziare chiunque.", 
         type: 'malus', 
-        effect_desc: "Retrocedi di 2 caselle.", 
+        effect_desc: "Retrocedi di 2 caselle. (Solo tu)", 
         move_steps: -2 
     },
     { 
         name: "Non capisci cosa dica Jey Uso!", 
         text: "YEET! Jey ti dice cosa fare, ma tu capisci solo Yeet e un paio di Uce. Nel dubbio tu Yeetti e va male.", 
         type: 'malus', 
-        effect_desc: "Retrocedi di 1 casella.", 
+        effect_desc: "Retrocedi di 1 casella. (Solo tu)", 
         move_steps: -1 
     },
     { 
         name: "Il cameraman inquadra Stephanie Vaquer, Booker T impazzisce!", 
         text: "Non capisci più una mazza fra la Vaquer e Booker T che sbraita e scivoli sulla tua stessa bava.", 
         type: 'malus', 
-        effect_desc: "Retrocedi di 1 casella.", 
+        effect_desc: "Retrocedi di 1 casella. (Solo tu)", 
         move_steps: -1 
     },
 
@@ -125,28 +125,28 @@ const CARDS = [
         name: "Swanton Bomb!", 
         text: "La creatrice del gioco vede una Swanton fatta da Jeff Hardy, si mette a piangere ed immersa nella tristezza fa avanzare tutti di tre caselle.", 
         type: 'bonus', 
-        effect_desc: "Tutti i giocatori avanzano di 3 caselle.", 
+        effect_desc: "Tutti i giocatori avanzano di 3 caselle. (Tutti)", 
         move_all: 3 
     },
     { 
         name: "Claymore!", 
         text: "Drew McIntyre intercede per te e colpisce tutti con una Claymore!", 
         type: 'bonus', 
-        effect_desc: "Avanzi di 3 caselle.", 
+        effect_desc: "Avanzi di 3 caselle. (Solo tu)", 
         move_steps: 3 
     },
     { 
         name: "Vince returns!", 
         text: "Vince McMahon ritorna, distrugge tutti i piani di Triple H e ripristina la sua egemonia. No chance in hell!", 
         type: 'malus', 
-        effect_desc: "Tutti i giocatori tornano alla casella 1.", 
+        effect_desc: "Tutti i giocatori tornano alla casella 1. (Tutti)", 
         move_all_to_start: true 
     },
     { 
         name: "Underdog from the Underground!", 
         text: "Sami Zayne è una brava persona che aiuta sempre il più svantaggiato. E poi è simpatico. Ucey.", 
         type: 'special', 
-        effect_desc: "Il giocatore più indietro avanza alla tua casella, tutti gli altri saltano un turno.", 
+        effect_desc: "Il giocatore più indietro avanza alla tua casella, tutti gli altri saltano un turno. (Tutti)", 
         target_farthest_backward_to_self: true, 
         skip_all_others: true 
     },
@@ -154,64 +154,64 @@ const CARDS = [
         name: "Samoan dynasty!", 
         text: "Il risultato di un test del DNA svolto da Rikishi mostra che tutti i giocatori sono samoani...", 
         type: 'bonus', 
-        effect_desc: "Tutti i giocatori avanzano di 2 caselle.", 
+        effect_desc: "Tutti i giocatori avanzano di 2 caselle. (Tutti)", 
         move_all: 2 
     },
     { 
         name: "Stunner! Stunner! Stunner!", 
         text: "Stone Cold Steve Austin colpisce tutti con una Stunner e poi si sbrodola birra addosso. Forse era ubriaco.", 
         type: 'malus', 
-        effect_desc: "Tutti i giocatori retrocedono di 2 caselle.", 
+        effect_desc: "Tutti i giocatori retrocedono di 2 caselle. (Tutti)", 
         move_all: -2 
     },
     { 
         name: "Ref Bump!", 
         text: "Hey, la WWE ne piazza uno ogni due match, perchè io non dovrei metterlo?", 
         type: 'malus', 
-        effect_desc: "Salterai il prossimo turno.", 
+        effect_desc: "Salterai il prossimo turno. (Solo tu)", 
         skip_next_turn: true 
     },
     { 
         name: "Double Count-Out!", 
         text: "Tu e il giocatore più avanti vi fermate dal paninaro mentre lottatate fuori dal ring.", 
         type: 'malus', 
-        effect_desc: "Tu e il giocatore più avanti salterete il prossimo turno.", 
+        effect_desc: "Tu e il giocatore più avanti salterete il prossimo turno. (Tu e il più avanti)", 
         skip_self_and_farthest_ahead: true 
     },
     { 
         name: "Intercessione di Heyman!", 
         text: "Diventi un assistito di Paul Heyman! ... Per ora ti aiuta.", 
         type: 'special', 
-        effect_desc: "Ottieni un turno extra immediato.", 
+        effect_desc: "Ottieni un turno extra immediato. (Solo tu)", 
         extra_turn: true 
     },
     { 
         name: "Say His Name!", 
         text: "Sei in un momento di difficoltà, ma poi ti ricordi che esiste un Local Hero... Joe Hendry arriva in tuo soccorso!", 
         type: 'special', 
-        effect_desc: "Avanzi di 2 caselle E tutti gli avversari retrocedono di 1 casella ciascuno.", 
+        effect_desc: "Avanzi di 2 caselle E tutti gli avversari retrocedono di 1 casella ciascuno. (Tutti)", 
         move_steps: 2, 
         move_all_others: -1 
     },
     { 
         name: "I lie, i cheat, I steal!", 
-        text: "Eddie l'avrebbe fatto, lo sappiamo tutti.", 
+        text: "Eddie l'avrebbe fatto, lo sappiamo tutti. (Da applicare sempre prima della casella 20)", 
         type: 'special', 
-        effect_desc: "Vai direttamente alla casella 40.", 
+        effect_desc: "Vai direttamente alla casella 40. (Solo tu)", 
         target_cell: 40 
     },
     { 
         name: "I hear voices in my head!", 
         text: "Ti parlano e ti dicono di tornare indietro. No, sentire le voci non è sempre un bene.", 
         type: 'malus', 
-        effect_desc: "Retrocedi di 2 caselle.", 
+        effect_desc: "Retrocedi di 2 caselle. (Solo tu)", 
         move_steps: -2 
     },
     { 
         name: "Rest In Peace!", 
-        text: "Tutto diventa nero... Chokeslam e Piledriver.", 
+        text: "Tutto diventa nero, una campana risuona nell'arena, hai paura e lo sai. Chokeslam e Piledriver.", 
         type: 'malus', 
-        effect_desc: "Retrocede alla casella 1 (Partenza).", 
+        effect_desc: "Retrocede alla casella 1 (Partenza). (Solo tu)", 
         reset_position: true 
     },
 ];
@@ -250,6 +250,12 @@ function rollDice() {
     return Math.floor(Math.random() * 6) + 1;
 }
 function drawCard() {
+    // Implementazione semplificata: assegna "I lie, i cheat, I steal!" alla casella 18 se la griglia lo prevede
+    // ***NOTA***: La casella 18 è una "card draw cell". Se vuoi che la carta sia FISSA, 
+    // devi rimuoverla dal mazzo e forzarla qui. Ho rimosso il check di cascata nella card effect.
+    
+    // Per ora la lasciamo nel mazzo e ci assicuriamo che venga disegnata come qualsiasi altra carta.
+    
     if (gameState.cardDeck.length === 0) {
         gameState.cardDeck = [...CARDS];
         shuffleArray(gameState.cardDeck);
@@ -271,14 +277,22 @@ function calculatePath(start, end) {
     }
     return path;
 }
-function findTargetPlayer(type, currentPosition, currentPlayerID) {
+/**
+ * Trova il giocatore target (il più avanti o il più indietro).
+ * @param {'farthest_backward' | 'farthest_ahead'} type - Tipo di target da trovare.
+ * @param {string} currentPlayerID - ID del giocatore corrente da escludere.
+ * @returns {Object | null} Il giocatore target o null.
+ */
+function findTargetPlayer(type, currentPlayerID) {
     const otherPlayers = gameState.players.filter(p => p.id !== currentPlayerID);
     if (otherPlayers.length === 0) return null;
 
     if (type === 'farthest_backward') {
+        // Trova il giocatore con la posizione più bassa
         return otherPlayers.reduce((farthest, p) => p.position < farthest.position ? p : farthest, otherPlayers[0]);
     }
     if (type === 'farthest_ahead') {
+        // Trova il giocatore con la posizione più alta
         return otherPlayers.reduce((farthest, p) => p.position > farthest.position ? p : farthest, otherPlayers[0]);
     }
     return null;
@@ -339,8 +353,18 @@ function processPlayerMove(diceRoll, isCardMove = false) {
     } else {
         player.position = newPosition;
         
+        // La carta "I lie, i cheat, I steal!" è fissa prima della 20, quindi la casella 18 è un buon candidato.
         if (!isCardMove && CARD_DRAW_CELLS.includes(newPosition)) {
-            event = { type: 'card', data: drawCard() };
+             // LOGICA SEMPLIFICATA: Se la casella è la 18, pesca la carta fissa, altrimenti pesca una carta casuale.
+            let drawnCard;
+            if (newPosition === 18 && card.name !== "I lie, i cheat, I steal!") {
+                 // Trova e forza "I lie, i cheat, I steal!" (Implementazione più sicura per la logica fissa)
+                drawnCard = CARDS.find(c => c.name === "I lie, i cheat, I steal!");
+            } else {
+                drawnCard = drawCard();
+            }
+
+            event = { type: 'card', data: drawnCard };
             isNewTurn = false; 
         } else {
             nextTurnLogic();
@@ -369,7 +393,7 @@ function processCardEffect(card) {
     let win = null;
     let cascadedCard = null;
     let extraTurn = false;
-    let finalMoveSteps = 0; // Inizializzazione per tracciare il movimento del giocatore corrente
+    let finalMoveSteps = 0;
 
     // --- FUNZIONE AUSILIARIA PER APPLICARE MOVIMENTO E TRACKING ---
     const applyMovement = (player, steps) => {
@@ -381,19 +405,19 @@ function processCardEffect(card) {
 
         if (newPos !== oldPos) {
             player.position = newPos;
-            // Evita duplicati di aggiornamenti se un giocatore viene mosso due volte (es. per target_nearest_ahead_back_to_self)
-            if (!playerUpdates.some(p => p.id === player.id)) {
+            
+            // Aggiorna o crea il record di movimento per questo giocatore
+            let existingUpdate = playerUpdates.find(p => p.id === player.id);
+            if (existingUpdate) {
+                existingUpdate.newPos = newPos;
+                existingUpdate.path = calculatePath(existingUpdate.oldPos, newPos); 
+            } else {
                 playerUpdates.push({
                     id: player.id,
                     path: calculatePath(oldPos, newPos),
                     newPos: newPos,
                     oldPos: oldPos 
                 });
-            } else {
-                // Aggiorna la posizione finale se il giocatore era già in lista
-                const existingUpdate = playerUpdates.find(p => p.id === player.id);
-                existingUpdate.newPos = newPos;
-                existingUpdate.path = calculatePath(oldPos, newPos); // Ricalcola il percorso
             }
 
             if (newPos === TOTAL_CELLS) {
@@ -420,16 +444,11 @@ function processCardEffect(card) {
             if (winner) win = winner;
         });
         
-        if (win) {
-             return { playerUpdates, win, cascadedCard: null, extraTurn: false, isNewTurn: false, cardApplied: { playerID: currentPlayer.id, card: card } };
-        }
-        
     } else {
         // ====================================================================================================
         // 2. GESTIONE EFFETTI SUL SINGOLO GIOCATORE (move_steps, target_cell, reset_position, move_multiplier)
-        // Applicato SOLO se non è una carta di massa.
+        // Applicato SOLO al giocatore di turno se non è una carta di massa.
         // ====================================================================================================
-        
         
         if (card.move_multiplier) {
             finalMoveSteps = gameState.lastDiceRoll * card.move_multiplier;
@@ -446,33 +465,32 @@ function processCardEffect(card) {
             const winner = applyMovement(currentPlayer, finalMoveSteps);
             if (winner) {
                 win = winner;
-                return { playerUpdates, win, cascadedCard: null, extraTurn: false, isNewTurn: false, cardApplied: { playerID: currentPlayer.id, card: card } };
             }
         }
     }
 
 
     // ====================================================================================================
-    // 3. GESTIONE EFFETTI TARGETTIZZATI O TURNI
+    // 3. GESTIONE EFFETTI TARGETTIZZATI O TURNI (Avvengono DOPO il movimento del giocatore corrente/di massa)
     // ====================================================================================================
 
     // Target: Pipe Bomb! (Il più avanti retrocede alla tua casella attuale.)
     if (card.target_nearest_ahead_back_to_self) {
-        const target = findTargetPlayer('farthest_ahead', currentPlayer.position, currentPlayer.id); 
+        const target = findTargetPlayer('farthest_ahead', currentPlayer.id); 
         if (target) {
             const stepsToMove = currentPlayer.position - target.position;
             applyMovement(target, stepsToMove); 
-            logEvent(`${target.name} retrocede a casella ${currentPlayer.position}.`, 'effect');
+            logEvent(`${target.name} ${target.symbol} retrocede a casella ${currentPlayer.position} (Pipe Bomb!).`, 'effect');
         }
     }
 
     // Target: Underdog from the Underground! (Il più indietro avanza alla tua casella attuale.)
     if (card.target_farthest_backward_to_self) {
-        const target = findTargetPlayer('farthest_backward', currentPlayer.position, currentPlayer.id);
+        const target = findTargetPlayer('farthest_backward', currentPlayer.id);
         if (target) {
             const stepsToMove = currentPlayer.position - target.position;
             applyMovement(target, stepsToMove); 
-            logEvent(`${target.name} avanza a casella ${currentPlayer.position}.`, 'effect');
+            logEvent(`${target.name} ${target.symbol} avanza a casella ${currentPlayer.position} (Underdog!).`, 'effect');
         }
     }
 
@@ -482,6 +500,7 @@ function processCardEffect(card) {
             if (p.id !== currentPlayer.id) { // Solo gli avversari
                 const otherWinner = applyMovement(p, card.move_all_others); 
                 if (otherWinner) win = otherWinner;
+                logEvent(`${p.name} retrocede di ${Math.abs(card.move_all_others)} casella.`, 'malus');
             }
         });
     }
@@ -489,7 +508,7 @@ function processCardEffect(card) {
     // Target: Doppio Salto Turno (Double Count-Out!)
     if (card.skip_self_and_farthest_ahead) {
         currentPlayer.skippedTurns += 1; // Salto per il giocatore corrente
-        const target = findTargetPlayer('farthest_ahead', currentPlayer.position, currentPlayer.id);
+        const target = findTargetPlayer('farthest_ahead', currentPlayer.id);
         if (target) {
             target.skippedTurns += 1;
             logEvent(`Saltato turno per ${currentPlayer.name} e ${target.name}.`, 'malus'); 
@@ -513,11 +532,11 @@ function processCardEffect(card) {
                 p.skippedTurns += 1;
             }
         });
-        logEvent(`Tutti i giocatori tranne ${currentPlayer.name} salteranno un turno.`, 'malus'); 
+        // Log specifico già presente sopra
     }
     
     // Log Effetto finale 
-    const moved = playerUpdates.some(update => update.id === currentPlayer.id); // Controllo se il giocatore è stato mosso o ha ricevuto un effetto turno
+    const moved = playerUpdates.some(update => update.id === currentPlayer.id); 
     if (card.effect_desc && !win && (moved || card.skip_next_turn || card.extra_turn)) {
         logEvent(`[${currentPlayer.name}] Effetto completato: ${card.effect_desc}`, card.type);
     }
@@ -530,13 +549,14 @@ function processCardEffect(card) {
     {
         const playerMoved = playerUpdates.some(update => update.id === currentPlayer.id && update.newPos !== update.oldPos); 
         
-        if (playerMoved && CARD_DRAW_CELLS.includes(currentPlayer.position)) {
-            cascadedCard = {
-                card: drawCard(),
-                position: currentPlayer.position,
-                playerID: currentPlayer.id
-            };
-            extraTurn = false; // Se pesca in cascata, non ottiene turno extra
+        // Se la carta "I lie, i cheat, I steal!" non è stata disegnata, non c'è possibilità di cascata
+        if (playerMoved && CARD_DRAW_CELLS.includes(currentPlayer.position) && card.name !== "I lie, i cheat, I steal!") {
+             cascadedCard = {
+                 card: drawCard(),
+                 position: currentPlayer.position,
+                 playerID: currentPlayer.id
+             };
+             extraTurn = false; // Se pesca in cascata, non ottiene turno extra
         }
     }
 

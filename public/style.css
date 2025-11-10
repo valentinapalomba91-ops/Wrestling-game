@@ -324,7 +324,7 @@ main {
 }
 
 .pawn-name {
-    /* 💥 MODIFICA APPLICATA: Nasconde il nome sulla pedina */
+    /* Nasconde il nome sulla pedina per default */
     display: none; 
     font-size: 0.55em; 
     line-height: 1;
@@ -340,6 +340,21 @@ main {
     border-color: yellow;
     z-index: 100 !important;
 }
+
+/* 💥 MODIFICA APPLICATA QUI: Mostra il nome della pedina quando è attiva */
+.active-pawn .pawn-name {
+    display: block; 
+    position: absolute; /* Rimuovi il nome dal flow interno */
+    bottom: -15px; /* Posiziona il nome sotto la pedina */
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.7em; /* Aumentato leggermente per leggibilità */
+    z-index: 101;
+    white-space: nowrap;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* 🃏 MODALI (Login, Card, Win) */
@@ -460,9 +475,11 @@ main {
     .pawn-symbol {
         font-size: 1.1em; 
     }
+    
+    /* **NOTA**: Il nome .pawn-name è già display:none per la maggior parte del tempo. 
+    Quando è attivo, appare il nome, ma non lo modifichiamo specificamente qui. */
     .pawn-name {
-        /* Questo non è più rilevante grazie al display: none sopra, ma lo mantengo per coerenza */
-        font-size: 0.45em; 
+        font-size: 0.6em; /* Adattato per la nuova posizione assoluta */
     }
     
     /* 4. Modal: Riduci la dimensione del contenuto del modal */
