@@ -37,8 +37,10 @@
             <div id="main-status-message" class="alert alert-info mt-2">In attesa di giocatori...</div>
 
             <div id="log-container" class="log-container">
-                <div class="log-title">Cronologia Eventi</div>
-                <div id="message-box" class="mt-1"></div> </div>
+                <div class="log-title">Cronologia Eventi 📜</div>
+                <div id="message-box" class="mt-1">
+                    </div> 
+            </div>
         </section>
 
         <section id="board-container">
@@ -301,14 +303,17 @@
             // 3. Aggiorna lo stato dei giocatori e del turno
             updateStatus(state);
             
+            // 4. AGGIORNAMENTO CRONOLOGIA EVENTI (IMPLEMENTAZIONE RICHIESTA)
+            updateLog(state.gameLog);
+
             let moveFinishedPromise = Promise.resolve();
             let cardEvent = null;
 
             if (state.moveResult) {
                 isWaitingForAnimation = true; 
                 
-                // 3a. Logga il tiro del dado
-                logEvent(`**${state.moveResult.playerName}** tira un **${state.moveResult.diceRoll}**.`, 'dice');
+                // 3a. Logga il tiro del dado (Questa logica rimane per l'integrazione con la cronologia)
+                // logEvent(`**${state.moveResult.playerName}** tira un **${state.moveResult.diceRoll}**.`, 'dice');
 
                 // 3b. Anima il tiro del dado
                 diceResult.textContent = state.moveResult.diceRoll;
@@ -329,14 +334,14 @@
             
             await moveFinishedPromise;
             
-            // 4. Gestione Eventi (Vittoria o Carta)
+            // 5. Gestione Eventi (Vittoria o Carta)
             if (cardEvent) {
                 if (cardEvent.type === 'win') {
                     showWin(state.players.find(p => p.id === state.moveResult.playerId)); 
-                    logEvent(`**${state.moveResult.playerName}** raggiunge la fine e vince! 🏆`, 'win');
+                    // logEvent(`**${state.moveResult.playerName}** raggiunge la fine e vince! 🏆`, 'win'); // gestito dal server log
                 } else if (cardEvent.type === 'card') {
                     showCardModal(cardEvent.data);
-                    logEvent(`**${state.moveResult.playerName}** pesca una carta: **${cardEvent.data.name}**`, 'card');
+                    // logEvent(`**${state.moveResult.playerName}** pesca una carta: **${cardEvent.data.name}**`, 'card'); // gestito dal server log
                 }
             }
             
@@ -350,9 +355,12 @@
         socket.on('card effect update', async (data) => {
             isWaitingForAnimation = true;
             
-            if (data.logMessage) { // Logga l'effetto applicato
-                logEvent(data.logMessage, 'effect');
-            }
+            // Il log viene aggiornato tramite 'game state update', ma qui abbiamo bisogno
+            // del log per sapere se c'è un messaggio specifico da stampare PRIMA dell'aggiornamento.
+            // Se il server invia un logMessage, lo logghiamo immediatamente.
+            // if (data.logMessage) { 
+            //     logEvent(data.logMessage, 'effect'); 
+            // }
 
             if (data.playerUpdates && data.playerUpdates.length > 0) {
                 const movePromises = data.playerUpdates.map(update => {
@@ -372,7 +380,7 @@
             if (data.win) {
                 const winner = lastGameState.players.find(p => p.id === data.win);
                 showWin(winner);
-                logEvent(`**${winner.name}** vince grazie all'effetto della carta! 🏆`, 'win');
+                // logEvent(`**${winner.name}** vince grazie all'effetto della carta! 🏆`, 'win'); // gestito dal server log
                 isWaitingForAnimation = false;
                 return;
             }
@@ -380,14 +388,14 @@
             if (data.cascadedCard) {
                 isWaitingForAnimation = false;
                 showCardModal(data.cascadedCard.card);
-                logEvent(`L'effetto attiva un'altra carta: **${data.cascadedCard.card.name}**`, 'card');
+                // logEvent(`L'effetto attiva un'altra carta: **${data.cascadedCard.card.name}**`, 'card'); // gestito dal server log
                 return;
             }
             
-            if (data.extraTurn) { 
-                logEvent(`**${lastGameState.players.find(p => p.id === lastGameState.currentPlayerID).name}** ottiene un **turno extra**!`, 'bonus');
-                mainStatusMessage.textContent = "Turno Extra! Tira di nuovo.";
-            }
+            // if (data.extraTurn) { 
+            //     logEvent(`**${lastGameState.players.find(p => p.id === lastGameState.currentPlayerID).name}** ottiene un **turno extra**!`, 'bonus'); // gestito dal server log
+            //     mainStatusMessage.textContent = "Turno Extra! Tira di nuovo.";
+            // }
             
             isWaitingForAnimation = false;
             updateStatus(lastGameState);
@@ -397,22 +405,28 @@
         // 🔨 FUNZIONI DI SUPPORTO UI E LOG
         // --------------------------------------------------
         
-        /** Aggiunge un messaggio al log della partita */
-        function logEvent(message, type = 'general') {
-            const entry = document.createElement('div');
-            entry.className = `log-entry log-${type}`; 
-            entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`; // Usiamo innerHTML per il grassetto
-
-            // Aggiunge l'entry in cima al messageBox (per vedere l'ultima azione)
-            messageBox.prepend(entry); 
+        /** 💥 AGGIORNAMENTO COMPLETO DELLA CRONOLOGIA DAL SERVER */
+        function updateLog(gameLog) {
+            // Pulisce il contenitore precedente
+            messageBox.innerHTML = ''; 
             
-            // Mantiene il log scrollato in alto
-            logContainer.scrollTop = 0; 
-
-            // Mantiene un limite di messaggi
-            if (messageBox.children.length > 20) {
-                messageBox.removeChild(messageBox.lastChild);
-            }
+            // Itera sull'array gameLog ricevuto e aggiunge ogni entry
+            gameLog.forEach(entry => {
+                const logEntry = document.createElement('div');
+                // Usa la proprietà 'type' per applicare stili (es. log-dice, log-win)
+                logEntry.className = `log-entry log-${entry.type}`; 
+                
+                // Usa innerHTML per interpretare il grassetto (**) se lo usi nel server
+                // Formato: [HH:MM:SS] Messaggio
+                logEntry.innerHTML = `[${entry.timestamp}] ${entry.message}`; 
+                
+                // Prepend per mostrare i messaggi più recenti in cima
+                messageBox.prepend(logEntry);
+            });
+            
+            // Mantiene il log scrollato in alto (per vedere le ultime azioni)
+            logContainer.scrollTop = 0;
+            // Nota: Rimuovo il limite qui, lascio al server decidere quanti log inviare.
         }
 
         function updatePawns(players) {
@@ -510,7 +524,7 @@
         function showCardModal(card) {
             playSound('cardDraw');
             cardName.textContent = card.name;
-            cardText.textContent = card.text;
+            cardText.textContent = card.textContent;
             cardEffectDesc.textContent = card.effect_desc;
             
             // Imposta il colore del titolo in base al tipo di carta

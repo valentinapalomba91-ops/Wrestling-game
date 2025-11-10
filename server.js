@@ -224,11 +224,11 @@ let gameState = {
     cardDeck: [...CARDS],
     cardDrawCells: CARD_DRAW_CELLS,
     lastDiceRoll: 0,
-    // 💥 AGGIUNTO: Log degli Eventi
+    // AGGIUNTO: Log degli Eventi
     gameLog: [], 
 };
 
-// 💥 AGGIUNTO: Funzione per il Log degli Eventi
+// 💥 MODIFICA: La funzione di log ora gestisce nomi più descrittivi.
 /** * Aggiunge un evento al log e ne limita la dimensione massima.
  * @param {string} message - Il messaggio da loggare.
  * @param {string} type - Il tipo di evento ('general', 'dice', 'card', 'effect', 'win').
@@ -272,12 +272,12 @@ function initializeGame() {
         player.position = 1;
         player.symbol = PLAYER_SYMBOLS[index % PLAYER_SYMBOLS.length];
         player.skippedTurns = 0;
-        // Manteniamo il nome se è già stato impostato dal client
+        // 🚨 CRITICAL FIX: Manteniamo il nome se è già stato impostato dal client
         if (!player.name || player.name.startsWith('Giocatore ')) {
             player.name = `Giocatore ${index + 1}`; 
         }
     });
-    // 💥 LOG: Inizializzazione
+    // LOG: Inizializzazione
     logEvent("La partita è iniziata. Tutti i giocatori sono a casella 1.", 'general');
 }
 
@@ -321,7 +321,7 @@ function nextTurnLogic() {
     
     // Controlla il prossimo giocatore e salta quelli bloccati
     while (gameState.players[nextIndex].skippedTurns > 0) {
-        // 💥 LOG: Salto turno
+        // 💥 MODIFICA: Log con nome e simbolo del giocatore
         logEvent(`${gameState.players[nextIndex].name} ${gameState.players[nextIndex].symbol} salta il turno (Turni rimanenti: ${gameState.players[nextIndex].skippedTurns - 1}).`, 'malus');
         
         gameState.players[nextIndex].skippedTurns--;
@@ -356,13 +356,13 @@ function processPlayerMove(diceRoll, isCardMove = false) {
             player.position = newPosition;
             gameState.game_over = true;
             event = { type: 'win' };
-            // 💥 LOG: Vittoria
+            // 💥 MODIFICA: Log Vittoria con nome
             logEvent(`🎉 **${player.name} ${player.symbol} VINCE LA PARTITA!**`, 'win');
         } else {
             // Rimbalzo: rimane fermo se supera 100
             newPosition = player.position; 
-            // 💥 LOG: Rimbalzo
-            logEvent(`${player.name} tira un ${diceRoll} ma rimane a casella ${player.position} (serve un ${TOTAL_CELLS - oldPosition} esatto).`, 'general');
+            // 💥 MODIFICA: Log Rimbalzo con nome
+            logEvent(`${player.name} ${player.symbol} tira un ${diceRoll} ma rimane a casella ${player.position} (serve un ${TOTAL_CELLS - oldPosition} esatto).`, 'general');
         }
     } else {
         // Aggiorna la posizione
@@ -447,8 +447,8 @@ function processCardEffect(card) {
         return null;
     };
     
-    // 💥 LOG: Inizio elaborazione carta
-    logEvent(`${currentPlayer.name} pesca: **${card.name}**! (${card.type.toUpperCase()})`, 'card');
+    // 💥 MODIFICA: Log Inizio elaborazione carta con nome
+    logEvent(`${currentPlayer.name} ${currentPlayer.symbol} pesca: **${card.name}**! (${card.type.toUpperCase()})`, 'card');
 
     // --- 1. PRE-ELABORAZIONE VARIABILI ---
     let finalMoveSteps = card.move_steps || 0;
@@ -469,8 +469,8 @@ function processCardEffect(card) {
         
         // CORREZIONE: Se la partita è finita a causa di una carta collettiva, termina qui.
         if (win) {
-             // 💥 LOG: Vittoria per carta collettiva
-            logEvent(`🎉 **${gameState.players.find(p => p.id === win).name} ${gameState.players.find(p => p.id === win).symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
+             // 💥 MODIFICA: Log Vittoria con nome
+             logEvent(`🎉 **${gameState.players.find(p => p.id === win).name} ${gameState.players.find(p => p.id === win).symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
              return { playerUpdates, win, cascadedCard: null, extraTurn: false, isNewTurn: false };
         }
         
@@ -490,7 +490,7 @@ function processCardEffect(card) {
             const winner = applyMovement(currentPlayer, finalMoveSteps);
             if (winner) {
                 win = winner;
-                // 💥 LOG: Vittoria per carta
+                // 💥 MODIFICA: Log Vittoria con nome
                 logEvent(`🎉 **${currentPlayer.name} ${currentPlayer.symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
                 // CORREZIONE: Se la partita è finita, esci
                 return { playerUpdates, win, cascadedCard: null, extraTurn: false, isNewTurn: false };
@@ -530,8 +530,8 @@ function processCardEffect(card) {
         
         // CORREZIONE: Controlla la vittoria dopo i movimenti sugli avversari
         if (win) {
-             // 💥 LOG: Vittoria per carta
-            logEvent(`🎉 **${gameState.players.find(p => p.id === win).name} ${gameState.players.find(p => p.id === win).symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
+             // 💥 MODIFICA: Log Vittoria con nome
+             logEvent(`🎉 **${gameState.players.find(p => p.id === win).name} ${gameState.players.find(p => p.id === win).symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
              return { playerUpdates, win, cascadedCard: null, extraTurn: false, isNewTurn: false };
         }
         
@@ -541,6 +541,8 @@ function processCardEffect(card) {
             const target = findTargetPlayer('farthest_ahead', currentPlayer.position, currentPlayer.id);
             if (target) {
                 target.skippedTurns += 1;
+                // 💥 MODIFICA: Log Salto Target
+                logEvent(`Saltato turno per ${currentPlayer.name} e ${target.name}.`, 'malus'); 
             }
         }
         
@@ -561,9 +563,9 @@ function processCardEffect(card) {
 
     } // Fine blocco else (non move_all)
 
-    // 💥 LOG: Effetto finale
+    // 💥 MODIFICA: Log Effetto finale
     if (card.effect_desc) {
-        logEvent(`Effetto di ${card.name}: ${card.effect_desc}`, card.type);
+        logEvent(`[${currentPlayer.name}] Effetto di ${card.name}: ${card.effect_desc}`, card.type);
     }
 
 
@@ -629,7 +631,7 @@ function emitGameState() {
         TOTAL_CELLS: TOTAL_CELLS,
         currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null,
         cardDrawCells: CARD_DRAW_CELLS,
-        // 💥 AGGIUNTO: Invia il log degli eventi
+        // AGGIUNTO: Invia il log degli eventi
         gameLog: gameState.gameLog 
     });
 }
@@ -641,6 +643,7 @@ io.on('connection', (socket) => {
     // ✨ AGGIUNTA DEL CAMPO NAME CON VALORE PREDEFINITO
     const newPlayer = {
         id: socket.id,
+        // Nome provvisorio, sarà aggiornato subito dal client
         name: `Giocatore ${gameState.players.length + 1}`, 
         position: 1,
         symbol: PLAYER_SYMBOLS[gameState.players.length % PLAYER_SYMBOLS.length],
@@ -650,8 +653,8 @@ io.on('connection', (socket) => {
     gameState.players.push(newPlayer);
     currentPlayers[socket.id] = newPlayer; 
     
-    // 💥 LOG: Connessione
-    logEvent(`Il Giocatore ${newPlayer.name} ${newPlayer.symbol} si è unito alla partita.`, 'general');
+    // 💥 MODIFICA: Log Connessione
+    logEvent(`Un giocatore ${newPlayer.symbol} si è unito. In attesa del nome...`, 'general');
 
     if (gameState.players.length === 1) {
         initializeGame();
@@ -669,12 +672,14 @@ io.on('connection', (socket) => {
         if (player) {
             const oldName = player.name;
             // Sanitizza e limita il nome
-            player.name = String(name).trim().substring(0, 15) || `Giocatore ${gameState.players.findIndex(p => p.id === socket.id) + 1}`;
-            console.log(`[SERVER] Giocatore ${socket.id} ha impostato il nome: ${player.name}`);
+            const newName = String(name).trim().substring(0, 15);
             
-            // 💥 LOG: Cambio nome
-            if (oldName !== player.name) {
-                logEvent(`${oldName} ha cambiato nome in **${player.name}** ${player.symbol}.`, 'general');
+            if (newName && newName !== oldName) {
+                player.name = newName;
+                console.log(`[SERVER] Giocatore ${socket.id} ha impostato il nome: ${player.name}`);
+                
+                // 💥 LOG: Cambio nome
+                logEvent(`${oldName.startsWith('Giocatore') ? 'Un nuovo contendente' : oldName} ha scelto il nome **${player.name}** ${player.symbol}.`, 'general');
             }
 
             emitGameState(); // Invia lo stato aggiornato a tutti i client
@@ -692,17 +697,17 @@ io.on('connection', (socket) => {
         const diceRoll = rollDice();
         gameState.lastDiceRoll = diceRoll;
         
-        // 💥 LOG: Inizio tiro del dado
+        // 💥 MODIFICA: Log Inizio tiro del dado con nome
         logEvent(`${currentPlayer.name} ${currentPlayer.symbol} tira un **${diceRoll}** a casella ${currentPlayer.position}.`, 'dice');
 
         const moveResult = processPlayerMove(diceRoll);
         
-        // 💥 LOG: Risultato della mossa
+        // 💥 MODIFICA: Log Risultato della mossa
         if (moveResult.event && moveResult.event.type === 'card') {
-             logEvent(`${currentPlayer.name} si è mosso a casella ${currentPlayer.position} e pesca una carta...`, 'effect');
-        } else if (!gameState.game_over) {
-             // logga la posizione solo se non c'è una carta (che è gestita in processCardEffect) e non c'è vittoria
-             logEvent(`${currentPlayer.name} si è mosso a casella ${currentPlayer.position}.`, 'effect');
+             logEvent(`${currentPlayer.name} è atterrato su casella **${currentPlayer.position}** e pesca una carta...`, 'effect');
+        } else if (!gameState.game_over && moveResult.finalPosition !== moveResult.oldPosition) {
+             // logga la posizione solo se non c'è una carta e non c'è vittoria (il log rimbalzo è dentro processPlayerMove)
+             logEvent(`${currentPlayer.name} si è mosso a casella **${currentPlayer.position}**.`, 'effect');
         }
 
         // 1. Invia il risultato della mossa con i dettagli della carta (se presente)
@@ -718,7 +723,7 @@ io.on('connection', (socket) => {
             })),
             currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null,
             cardDrawCells: CARD_DRAW_CELLS,
-            gameLog: gameState.gameLog // 💥 AGGIUNTO: Assicura che il log sia aggiornato subito
+            gameLog: gameState.gameLog // AGGIUNTO: Assicura che il log sia aggiornato subito
         });
         
         // 2. Se la mossa ha completato il ciclo (non c'è carta e non c'è vittoria), invia l'aggiornamento dello stato finale dopo un breve ritardo
@@ -758,7 +763,9 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const playerIndex = gameState.players.findIndex(p => p.id === socket.id);
         if (playerIndex !== -1) {
-             const disconnectedPlayerName = gameState.players[playerIndex].name; // Prendi il nome prima di rimuovere
+             const disconnectedPlayer = gameState.players[playerIndex]; // Prendi l'oggetto prima di rimuovere
+             const disconnectedPlayerName = disconnectedPlayer.name; 
+             const disconnectedPlayerSymbol = disconnectedPlayer.symbol;
              console.log(`[SERVER] Giocatore disconnesso: ${socket.id} (${disconnectedPlayerName})`);
             
              const wasCurrent = (playerIndex === gameState.currentTurnIndex);
@@ -766,8 +773,8 @@ io.on('connection', (socket) => {
              gameState.players.splice(playerIndex, 1);
              delete currentPlayers[socket.id];
 
-             // 💥 LOG: Disconnessione
-             logEvent(`${disconnectedPlayerName} ha lasciato la partita.`, 'general');
+             // 💥 MODIFICA: Log Disconnessione
+             logEvent(`**${disconnectedPlayerName} ${disconnectedPlayerSymbol}** ha lasciato la contesa.`, 'general');
 
 
              if (wasCurrent && gameState.players.length > 0) {
