@@ -310,11 +310,8 @@
         // 🔄 GESTIONE AGGIORNAMENTI SOCKET.IO
         // --------------------------------------------------
 
-        socket.on('game state update', async (state) => {
-            // Se in attesa di un'animazione precedente, ignora l'aggiornamento
-            // Questa è una guardia, ma il server dovrebbe inviare solo stati finali
-            if (isWaitingForAnimation) return;
-            
+        /** Listener per l'aggiornamento generale dello stato (NON per l'animazione) */
+        socket.on('game state update', (state) => {
             lastGameState = state;
             
             // 1. Inizializzazione tabellone
@@ -327,57 +324,73 @@
             
             // 3. AGGIORNAMENTO CRONOLOGIA EVENTI
             updateLog(state.gameLog);
-
-            let moveFinishedPromise = Promise.resolve();
-            let cardEvent = null;
-
-            if (state.moveResult) {
-                isWaitingForAnimation = true; 
-                
-                // 3a. Anima il tiro del dado
-                diceResult.textContent = state.moveResult.diceRoll;
-                diceResult.classList.add('shake');
-                playSound('diceRoll');
-                setTimeout(() => diceResult.classList.remove('shake'), 500);
-
-                // 3b. Anima il movimento della pedina
-                moveFinishedPromise = animateMove(
-                    state.moveResult.playerId, 
-                    state.moveResult.path, 
-                    state.moveResult.finalPosition,
-                    state.players
-                );
-                
-                cardEvent = state.moveResult.event;
-            }
             
-            // Aspetta il completamento dell'animazione
-            await moveFinishedPromise;
-            
-            // 5. Gestione Eventi (Vittoria o Carta)
-            if (cardEvent) {
-                if (cardEvent.type === 'win') {
-                    showWin(state.players.find(p => p.id === state.moveResult.playerId)); 
-                } else if (cardEvent.type === 'card') {
-                    showCardModal(cardEvent.data);
-                }
-            }
-            
-            // Pulisci il moveResult per evitare di rianimare/riloggare al prossimo update
-            state.moveResult = null; 
-            
-            isWaitingForAnimation = false; 
-            updateStatus(state); // 3. Aggiorna lo stato dei giocatori e del turno
+            // 4. Aggiorna lo stato dei giocatori e del turno
+            // (La logica del dado disabilitato/abilitato è qui, in base al turno e allo stato di animazione)
+            updateStatus(state); 
         });
 
+        // ==========================================================
+        // 🔑 FIX: NUOVO LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO
+        // ==========================================================
+        socket.on('dice roll result', async (moveResult) => {
+            const currentPlayer = lastGameState.players.find(p => p.id === moveResult.playerId);
+
+            // 1. Avvia lo stato di animazione e disabilita il dado (anche se era già disabilitato dal click)
+            isWaitingForAnimation = true;
+            rollDiceBtn.disabled = true;
+            
+            // 2. Anima il tiro del dado
+            diceResult.textContent = moveResult.diceRoll;
+            diceResult.classList.add('shake');
+            playSound('diceRoll');
+            
+            // Logica visiva (Update pawns per aggiornare lo stato di movimento sulla pedina se necessario)
+            updatePawns(lastGameState.players);
+            
+            setTimeout(() => {
+                diceResult.classList.remove('shake');
+                
+                // 3. Anima il movimento della pedina
+                animateMove(
+                    moveResult.playerId, 
+                    moveResult.path, 
+                    moveResult.finalPosition,
+                    lastGameState.players
+                ).then(() => {
+                    // 4. L'ANIMAZIONE È FINITA: Controlla se c'è un evento WIN o CARD
+                    
+                    if (moveResult.event) {
+                        if (moveResult.event.type === 'win') {
+                            showWin(currentPlayer); 
+                            isWaitingForAnimation = false;
+                        } else if (moveResult.event.type === 'card') {
+                            // Se è una carta, mostra il modale. L'animazione è finita.
+                            isWaitingForAnimation = false; 
+                            showCardModal(moveResult.event.data);
+                        }
+                    } else {
+                        // 5. NESSUN EVENTO SPECIALE: Invia il segnale al server per passare il turno
+                        socket.emit('movement finished', { playerId: moveResult.playerId });
+                        isWaitingForAnimation = false;
+                        // updateStatus verrà chiamato dal successivo 'game state update' dal server
+                    }
+                });
+            }, 500); // Ritardo per l'animazione del dado
+        });
+
+        // ==========================================================
+        // FIX: GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA
+        // ==========================================================
         socket.on('card effect update', async (data) => {
             isWaitingForAnimation = true;
             
             if (data.playerUpdates && data.playerUpdates.length > 0) {
-                // Ricalcola lo stato dei giocatori prima di animare
+                // Ricalcola lo stato dei giocatori prima di animare l'effetto carta
                 const playerUpdatesMap = new Map(data.playerUpdates.map(p => [p.id, p]));
                 const playersAfterCard = lastGameState.players.map(p => {
                     const update = playerUpdatesMap.get(p.id);
+                    // Aggiorna solo la posizione per l'animazione dell'effetto (es: scendi o sali)
                     if (update) {
                         return { ...p, position: update.newPos };
                     }
@@ -386,7 +399,6 @@
                 lastGameState.players = playersAfterCard; // Aggiorna lo stato globale
 
                 const movePromises = data.playerUpdates.map(update => {
-                    // La posizione finale è già nel playerUpdates (update.newPos)
                     return animateMove(update.id, update.path, update.newPos, playersAfterCard);
                 });
                 
@@ -404,17 +416,20 @@
             }
             
             if (data.cascadedCard) {
+                // Se c'è una carta a cascata, mostra immediatamente
                 isWaitingForAnimation = false;
                 showCardModal(data.cascadedCard.card);
                 return;
             }
             
+            // L'animazione è finita, avvisa il server per far passare il turno
+            socket.emit('card animation finished');
             isWaitingForAnimation = false;
-            updateStatus(lastGameState);
+            // updateStatus verrà chiamato dal prossimo 'game state update'
         });
 
         // --------------------------------------------------
-        // 🔨 FUNZIONI DI SUPPORTO UI E LOG
+        // 🔨 FUNZIONI DI SUPPORTO UI E LOG (POCHE MODIFICHE)
         // --------------------------------------------------
         
         /** AGGIORNAMENTO COMPLETO DELLA CRONOLOGIA DAL SERVER */
@@ -577,16 +592,15 @@
             cardName.style.color = card.type === 'malus' ? '#ff3333' : (card.type === 'bonus' ? '#00ff80' : 'gold');
             
             cardModal.classList.add('show');
-            // Nota: rollDiceBtn.disabled è gestito da updateStatus, che è chiamato alla fine
-            // Lo chiamiamo ora per riflettere l'attesa.
+            // Nota: rollDiceBtn.disabled è gestito da updateStatus, che è chiamato ora
             updateStatus(lastGameState); 
             
             resolveCardBtn.onclick = () => {
                 cardModal.classList.remove('show');
-                isWaitingForAnimation = true; 
-                // Disabilita nuovamente il dado mentre è in corso l'animazione dell'effetto
-                rollDiceBtn.disabled = true; 
+                // Invia il segnale al server per applicare l'effetto e continuare il turno
                 socket.emit('process card effect request', card);
+                // Il dado resterà disabilitato finché non arriva il 'card effect update' finale e il successivo 'game state update'
+                rollDiceBtn.disabled = true; 
             };
         }
         
@@ -622,11 +636,14 @@
         });
 
         rollDiceBtn.addEventListener('click', () => {
+            // Aggiungo il controllo isWaitingForAnimation qui per una doppia sicurezza
             if (!rollDiceBtn.disabled && !isWaitingForAnimation) {
-                // Disabilita immediatamente per prevenire doppi click e prepara l'animazione
+                // Disabilita immediatamente per prevenire doppi click
                 rollDiceBtn.disabled = true; 
                 isWaitingForAnimation = true; 
                 socket.emit('roll dice request');
+                // L'abilitazione del dado avverrà solo dopo che il server ha ricevuto la conferma di fine movimento/carta
+                // e ha inviato un nuovo 'game state update'.
             }
         });
 
