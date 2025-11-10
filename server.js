@@ -28,7 +28,7 @@ const PLAYER_SYMBOLS = ["⭐", "👑", "🐍", "🔥", "💪", "👊"];
 
 // ==========================================================
 // 🃏 DEFINIZIONE DELLE CARTE SPECIALI (25 Carte)
-// ... (omesse per brevità, sono le stesse)
+// ... (il tuo array CARDS è corretto, lo lascio invariato per brevità)
 // ==========================================================
 const CARDS = [
     // 1. 🟢 Carte Bonus e Avanzamento (3 Carte)
@@ -224,61 +224,31 @@ let gameState = {
     cardDeck: [...CARDS],
     cardDrawCells: CARD_DRAW_CELLS,
     lastDiceRoll: 0,
-    // AGGIUNTO: Log degli Eventi
     gameLog: [], 
 };
 
-// 💥 MODIFICA: La funzione di log ora gestisce nomi più descrittivi.
-/** * Aggiunge un evento al log e ne limita la dimensione massima.
- * @param {string} message - Il messaggio da loggare.
- * @param {string} type - Il tipo di evento ('general', 'dice', 'card', 'effect', 'win').
- */
+// ... (logEvent, shuffleArray, rollDice, drawCard, calculatePath, findTargetPlayer restano invariate) ...
+
+/** Aggiunge un evento al log e ne limita la dimensione massima. */
 function logEvent(message, type = 'general') {
     const logEntry = {
         timestamp: new Date().toLocaleTimeString('it-IT'), // Formato ora italiano
         message: message,
         type: type 
     };
-    
-    // Aggiungi in cima (più recente in alto)
     gameState.gameLog.unshift(logEntry); 
-    
-    // Mantieni solo gli ultimi 30 messaggi (o quanti ne vuoi)
     if (gameState.gameLog.length > 30) {
         gameState.gameLog.pop(); 
     }
 }
 
 
-// [ FUNZIONI DI LOGICA DI GIOCO ]
 /** Shuffla l'array in modo casuale (Algoritmo Fisher-Yates) */
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [array[i], array[j]] = [array[j], array[i]];
     }
-}
-
-/** Inizializza o resetta lo stato di gioco per un nuovo turno. */
-function initializeGame() {
-    gameState.cardDeck = [...CARDS];
-    shuffleArray(gameState.cardDeck);
-    gameState.game_over = false;
-    gameState.currentTurnIndex = 0;
-    gameState.lastDiceRoll = 0;
-    
-    // Assegna posizioni iniziali e simboli ai giocatori connessi
-    gameState.players.forEach((player, index) => {
-        player.position = 1;
-        player.symbol = PLAYER_SYMBOLS[index % PLAYER_SYMBOLS.length];
-        player.skippedTurns = 0;
-        // 🚨 CRITICAL FIX: Manteniamo il nome se è già stato impostato dal client
-        if (!player.name || player.name.startsWith('Giocatore ')) {
-            player.name = `Giocatore ${index + 1}`; 
-        }
-    });
-    // LOG: Inizializzazione
-    logEvent("La partita è iniziata. Tutti i giocatori sono a casella 1.", 'general');
 }
 
 /** Tira un dado D6. */
@@ -310,6 +280,52 @@ function calculatePath(start, end) {
         }
     }
     return path;
+}
+
+
+/**
+ * Trova il giocatore più avanti o più indietro.
+ * @param {string} type - 'farthest_backward' (più indietro), 'farthest_ahead' (più avanti).
+ * @returns {Object|null} Il giocatore trovato o null.
+ */
+function findTargetPlayer(type, currentPosition, currentPlayerID) {
+    const otherPlayers = gameState.players.filter(p => p.id !== currentPlayerID);
+    if (otherPlayers.length === 0) return null;
+
+    if (type === 'farthest_backward') {
+        // Trova il giocatore con la posizione più bassa (più indietro)
+        // Usa `Math.min` con la posizione come chiave di confronto
+        return otherPlayers.reduce((farthest, p) => p.position < farthest.position ? p : farthest, otherPlayers[0]);
+    }
+
+    if (type === 'farthest_ahead') {
+        // Trova il giocatore con la posizione più alta (più avanti)
+        // Usa `Math.max` con la posizione come chiave di confronto
+        return otherPlayers.reduce((farthest, p) => p.position > farthest.position ? p : farthest, otherPlayers[0]);
+    }
+
+    return null;
+}
+
+
+/** Inizializza o resetta lo stato di gioco per un nuovo turno. */
+function initializeGame() {
+    gameState.cardDeck = [...CARDS];
+    shuffleArray(gameState.cardDeck);
+    gameState.game_over = false;
+    gameState.currentTurnIndex = 0;
+    gameState.lastDiceRoll = 0;
+    
+    // Assegna posizioni iniziali e simboli ai giocatori connessi
+    gameState.players.forEach((player, index) => {
+        player.position = 1;
+        player.symbol = PLAYER_SYMBOLS[index % PLAYER_SYMBOLS.length];
+        player.skippedTurns = 0;
+        // 💥 CORREZIONE: NON ripristinare il nome qui, usa il nome impostato dal client.
+        // Se il nome è ancora il provvisorio 'Giocatore X', verrà aggiornato al primo 'set player name'.
+    });
+    // LOG: Inizializzazione
+    logEvent("La partita è iniziata. Tutti i giocatori sono a casella 1.", 'general');
 }
 
 /** Avanza al turno del prossimo giocatore valido (non saltato). */
@@ -388,27 +404,6 @@ function processPlayerMove(diceRoll, isCardMove = false) {
     };
 }
 
-/**
- * Trova il giocatore più avanti o più indietro.
- * @param {string} type - 'farthest_backward' (più indietro), 'farthest_ahead' (più avanti).
- * @returns {Object|null} Il giocatore trovato o null.
- */
-function findTargetPlayer(type, currentPosition, currentPlayerID) {
-    const otherPlayers = gameState.players.filter(p => p.id !== currentPlayerID);
-    if (otherPlayers.length === 0) return null;
-
-    if (type === 'farthest_backward') {
-        // Trova il giocatore con la posizione più bassa (più indietro)
-        return otherPlayers.reduce((farthest, p) => p.position < farthest.position ? p : farthest, otherPlayers[0]);
-    }
-
-    if (type === 'farthest_ahead') {
-        // Trova il giocatore con la posizione più alta (più avanti)
-        return otherPlayers.reduce((farthest, p) => p.position > farthest.position ? p : farthest, otherPlayers[0]);
-    }
-
-    return null;
-}
 
 /**
  * Applica l'effetto della carta e gestisce i movimenti a cascata.
@@ -441,47 +436,45 @@ function processCardEffect(card) {
             // Controlla la vittoria
             if (newPos === TOTAL_CELLS) {
                 gameState.game_over = true;
+                logEvent(`🎉 **${player.name} ${player.symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
                 return player.id;
             }
         }
         return null;
     };
     
-    // 💥 MODIFICA: Log Inizio elaborazione carta con nome
     logEvent(`${currentPlayer.name} ${currentPlayer.symbol} pesca: **${card.name}**! (${card.type.toUpperCase()})`, 'card');
 
-    // --- 1. PRE-ELABORAZIONE VARIABILI ---
-    let finalMoveSteps = card.move_steps || 0;
-
-    if (card.move_multiplier) {
-        finalMoveSteps = gameState.lastDiceRoll * card.move_multiplier;
-    }
-    
-    // --- 2. Movimenti Collettivi (move_all, move_all_to_start) ---
+    // --- 1. Movimenti Collettivi (move_all, move_all_to_start) ---
+    // Queste carte agiscono SEMPRE su tutti i giocatori, come da definizione nel tuo array CARDS.
     if (card.move_all || card.move_all_to_start) {
         const steps = card.move_all || 0;
         
         gameState.players.forEach(p => {
+            // Se move_all_to_start è true, lo spostamento è (1 - posizione corrente)
             const currentSteps = card.move_all_to_start ? 1 - p.position : steps;
             const winner = applyMovement(p, currentSteps);
             if (winner) win = winner;
         });
         
-        // CORREZIONE: Se la partita è finita a causa di una carta collettiva, termina qui.
         if (win) {
-             // 💥 MODIFICA: Log Vittoria con nome
-             logEvent(`🎉 **${gameState.players.find(p => p.id === win).name} ${gameState.players.find(p => p.id === win).symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
+             // Il log vittoria è già dentro applyMovement
              return { playerUpdates, win, cascadedCard: null, extraTurn: false, isNewTurn: false };
         }
         
-    } else {
-        // --- 3. Logica Target Multipli e Speciali (su player corrente) ---
+    } 
+    
+    // --- 2. Logica Target sul Giocatore Corrente ---
+    // Questo blocco contiene gli effetti che agiscono SOLO sul giocatore di turno (es. move_steps, target_cell, reset_position).
+    if (!card.move_all && !card.move_all_to_start) {
         
-        if (card.target_cell) {
+        let finalMoveSteps = card.move_steps || 0;
+        
+        if (card.move_multiplier) {
+            finalMoveSteps = gameState.lastDiceRoll * card.move_multiplier;
+        } else if (card.target_cell) {
             finalMoveSteps = card.target_cell - currentPlayer.position;
-        }
-        
-        if (card.reset_position) {
+        } else if (card.reset_position) {
             finalMoveSteps = 1 - currentPlayer.position; 
         }
         
@@ -490,87 +483,84 @@ function processCardEffect(card) {
             const winner = applyMovement(currentPlayer, finalMoveSteps);
             if (winner) {
                 win = winner;
-                // 💥 MODIFICA: Log Vittoria con nome
-                logEvent(`🎉 **${currentPlayer.name} ${currentPlayer.symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
-                // CORREZIONE: Se la partita è finita, esci
                 return { playerUpdates, win, cascadedCard: null, extraTurn: false, isNewTurn: false };
             }
         }
-
-        // --- 4. Logica Target su altri giocatori ---
-
-        // Target: Pipe Bomb! (Il più avanti retrocede alla tua casella attuale.)
-        if (card.target_nearest_ahead_back_to_self) {
-            const target = findTargetPlayer('farthest_ahead', currentPlayer.position, currentPlayer.id); 
-            if (target) {
-                const stepsToMove = currentPlayer.position - target.position;
-                applyMovement(target, stepsToMove); 
-            }
-        }
-
-        // Target: Underdog from the Underground! (Il più indietro avanza alla tua casella attuale.)
-        if (card.target_farthest_backward_to_self) {
-            const target = findTargetPlayer('farthest_backward', currentPlayer.position, currentPlayer.id);
-            if (target) {
-                const stepsToMove = currentPlayer.position - target.position;
-                applyMovement(target, stepsToMove); 
-            }
-        }
-
-        // Target: Say His Name! (retrocede tutti gli avversari)
-        if (card.move_all_others) {
-            gameState.players.forEach(p => {
-                if (p.id !== currentPlayer.id) {
-                    // Applica il movimento e controlla la vittoria
-                    const otherWinner = applyMovement(p, card.move_all_others); 
-                    if (otherWinner) win = otherWinner; // Imposta il vincitore se un avversario ha vinto
-                }
-            });
-        }
-        
-        // CORREZIONE: Controlla la vittoria dopo i movimenti sugli avversari
-        if (win) {
-             // 💥 MODIFICA: Log Vittoria con nome
-             logEvent(`🎉 **${gameState.players.find(p => p.id === win).name} ${gameState.players.find(p => p.id === win).symbol} VINCE GRAZIE ALLA CARTA!**`, 'win');
-             return { playerUpdates, win, cascadedCard: null, extraTurn: false, isNewTurn: false };
-        }
-        
-        // Target: Doppio Salto Turno (Double Count-Out!)
-        if (card.skip_self_and_farthest_ahead) {
-            currentPlayer.skippedTurns += 1;
-            const target = findTargetPlayer('farthest_ahead', currentPlayer.position, currentPlayer.id);
-            if (target) {
-                target.skippedTurns += 1;
-                // 💥 MODIFICA: Log Salto Target
-                logEvent(`Saltato turno per ${currentPlayer.name} e ${target.name}.`, 'malus'); 
-            }
-        }
-        
-        // --- 5. Turni Saltati e Turni Extra (solo sul giocatore corrente e sugli altri) ---
-        if (card.skip_next_turn) { // Ref Bump!
-            currentPlayer.skippedTurns += 1;
-        }
-        if (card.extra_turn) { // Intercessione di Heyman!
-            extraTurn = true;
-        }
-        if (card.skip_all_others) { // Underdog from the Underground!
-            gameState.players.forEach(p => {
-                if (p.id !== currentPlayer.id) {
-                    p.skippedTurns += 1;
-                }
-            });
-        }
-
-    } // Fine blocco else (non move_all)
-
-    // 💥 MODIFICA: Log Effetto finale
-    if (card.effect_desc) {
-        logEvent(`[${currentPlayer.name}] Effetto di ${card.name}: ${card.effect_desc}`, card.type);
     }
 
 
-    // --- 6. Controllo Carta a Cascata (solo per il giocatore corrente e se non c'è vittoria) ---
-    // Verifichiamo se il giocatore corrente SI È MOSSO e la sua nuova posizione è una casella carta.
+    // --- 3. Logica Target su Altri Giocatori o Turni ---
+    // Questo blocco gestisce target multipli, salti e turni extra.
+
+    // Target: Pipe Bomb! (Il più avanti retrocede alla tua casella attuale.)
+    if (card.target_nearest_ahead_back_to_self) {
+        const target = findTargetPlayer('farthest_ahead', currentPlayer.position, currentPlayer.id); 
+        if (target) {
+            const stepsToMove = currentPlayer.position - target.position;
+            applyMovement(target, stepsToMove); 
+            logEvent(`${target.name} retrocede a casella ${currentPlayer.position}.`, 'effect');
+        }
+    }
+
+    // Target: Underdog from the Underground! (Il più indietro avanza alla tua casella attuale.)
+    if (card.target_farthest_backward_to_self) {
+        const target = findTargetPlayer('farthest_backward', currentPlayer.position, currentPlayer.id);
+        if (target) {
+            const stepsToMove = currentPlayer.position - target.position;
+            applyMovement(target, stepsToMove); 
+            logEvent(`${target.name} avanza a casella ${currentPlayer.position}.`, 'effect');
+        }
+    }
+
+    // Target: Say His Name! (retrocede tutti gli avversari)
+    if (card.move_all_others) {
+        gameState.players.forEach(p => {
+            if (p.id !== currentPlayer.id) {
+                const otherWinner = applyMovement(p, card.move_all_others); 
+                if (otherWinner) win = otherWinner;
+            }
+        });
+    }
+    
+    // Target: Doppio Salto Turno (Double Count-Out!)
+    if (card.skip_self_and_farthest_ahead) {
+        currentPlayer.skippedTurns += 1;
+        const target = findTargetPlayer('farthest_ahead', currentPlayer.position, currentPlayer.id);
+        if (target) {
+            target.skippedTurns += 1;
+            logEvent(`Saltato turno per ${currentPlayer.name} e ${target.name}.`, 'malus'); 
+        }
+    }
+    
+    // Turni Saltati e Turni Extra (solo sul giocatore corrente e sugli altri)
+    if (card.skip_next_turn) { // Ref Bump!
+        currentPlayer.skippedTurns += 1;
+        logEvent(`${currentPlayer.name} salterà il prossimo turno.`, 'malus'); 
+    }
+    
+    if (card.extra_turn) { // Intercessione di Heyman!
+        extraTurn = true;
+        logEvent(`${currentPlayer.name} ottiene un turno extra immediato!`, 'bonus');
+    }
+    
+    if (card.skip_all_others) { // Underdog from the Underground!
+        gameState.players.forEach(p => {
+            if (p.id !== currentPlayer.id) {
+                p.skippedTurns += 1;
+            }
+        });
+        logEvent(`Tutti i giocatori tranne ${currentPlayer.name} salteranno un turno.`, 'malus'); 
+    }
+    
+    // Log Effetto finale
+    if (card.effect_desc) {
+        // Ho lasciato il log qui, ma i log specifici per movimento/salto sono più utili
+        // logEvent(`[${currentPlayer.name}] Effetto di ${card.name}: ${card.effect_desc}`, card.type);
+    }
+
+
+    // --- 4. Controllo Carta a Cascata (solo per il giocatore corrente e se non c'è vittoria) ---
+    // (Questa logica è già corretta)
     if (!win && !card.move_all && !card.move_all_to_start) 
     {
         const playerMoved = playerUpdates.some(update => update.id === currentPlayer.id && update.newPos !== update.oldPos); 
@@ -581,15 +571,14 @@ function processCardEffect(card) {
                 position: currentPlayer.position,
                 playerID: currentPlayer.id
             };
-            // Se c'è una cascata, annulliamo un eventuale extra_turn (la cascata ha priorità)
             extraTurn = false; 
         }
     }
 
-    // --- 7. Passaggio del Turno (solo se non c'è extra turno o cascata) ---
+    // --- 5. Passaggio del Turno ---
     let isNewTurn = true;
     if (extraTurn || cascadedCard || win) {
-        isNewTurn = false; // Se c'è extra turno o cascata, il turno non finisce O la partita finisce
+        isNewTurn = false;
     } else {
         nextTurnLogic();
     }
@@ -605,7 +594,6 @@ function processCardEffect(card) {
             playerID: currentPlayer.id,
             card: card
         },
-        // Restituisci il giocatore di turno DOPO la logica di avanzamento/extra turno
         currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null
     };
 }
@@ -626,12 +614,11 @@ function emitGameState() {
             position: p.position,
             symbol: p.symbol,
             skippedTurns: p.skippedTurns,
-            name: p.name // ✨ INVIA ANCHE IL NOME
+            name: p.name 
         })),
         TOTAL_CELLS: TOTAL_CELLS,
         currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null,
         cardDrawCells: CARD_DRAW_CELLS,
-        // AGGIUNTO: Invia il log degli eventi
         gameLog: gameState.gameLog 
     });
 }
@@ -640,11 +627,11 @@ function emitGameState() {
 io.on('connection', (socket) => {
     console.log(`[SERVER] Nuovo giocatore connesso: ${socket.id}`);
 
-    // ✨ AGGIUNTA DEL CAMPO NAME CON VALORE PREDEFINITO
+    // ✨ CORREZIONE: Imposta un nome PROVVISORIO che il client dovrà AGGIORNARE SUBITO
+    // Evita di usare l'indice come nome definitivo.
     const newPlayer = {
         id: socket.id,
-        // Nome provvisorio, sarà aggiornato subito dal client
-        name: `Giocatore ${gameState.players.length + 1}`, 
+        name: `In attesa...`, // Nome provvisorio, il client imposta il nome reale con 'set player name'
         position: 1,
         symbol: PLAYER_SYMBOLS[gameState.players.length % PLAYER_SYMBOLS.length],
         skippedTurns: 0
@@ -653,7 +640,7 @@ io.on('connection', (socket) => {
     gameState.players.push(newPlayer);
     currentPlayers[socket.id] = newPlayer; 
     
-    // 💥 MODIFICA: Log Connessione
+    // Log Connessione (il nome vero arriverà subito dopo)
     logEvent(`Un giocatore ${newPlayer.symbol} si è unito. In attesa del nome...`, 'general');
 
     if (gameState.players.length === 1) {
@@ -666,12 +653,11 @@ io.on('connection', (socket) => {
     // EVENTI GESTITI DAL CLIENT
     // --------------------------------------------------
     
-    // 🆕 NUOVO: Listener per l'aggiornamento del nome del giocatore
+    // Listener per l'aggiornamento del nome del giocatore
     socket.on('set player name', (name) => {
         const player = gameState.players.find(p => p.id === socket.id);
         if (player) {
             const oldName = player.name;
-            // Sanitizza e limita il nome
             const newName = String(name).trim().substring(0, 15);
             
             if (newName && newName !== oldName) {
@@ -679,16 +665,16 @@ io.on('connection', (socket) => {
                 console.log(`[SERVER] Giocatore ${socket.id} ha impostato il nome: ${player.name}`);
                 
                 // 💥 LOG: Cambio nome
-                logEvent(`${oldName.startsWith('Giocatore') ? 'Un nuovo contendente' : oldName} ha scelto il nome **${player.name}** ${player.symbol}.`, 'general');
+                logEvent(`${oldName.startsWith('In attesa') ? 'Un nuovo contendente' : oldName} ha scelto il nome **${player.name}** ${player.symbol}.`, 'general');
             }
 
-            emitGameState(); // Invia lo stato aggiornato a tutti i client
+            emitGameState(); 
         }
     });
 
-    // Richiesta di tiro del dado
+    // Richiesta di tiro del dado (nessuna modifica significativa necessaria qui)
     socket.on('roll dice request', () => {
-        const currentPlayer = gameState.players[gameState.currentTurnIndex]; // Ottieni il giocatore qui
+        const currentPlayer = gameState.players[gameState.currentTurnIndex]; 
         
         if (gameState.game_over || gameState.players.length === 0 || currentPlayer.id !== socket.id) {
             return;
@@ -697,20 +683,16 @@ io.on('connection', (socket) => {
         const diceRoll = rollDice();
         gameState.lastDiceRoll = diceRoll;
         
-        // 💥 MODIFICA: Log Inizio tiro del dado con nome
         logEvent(`${currentPlayer.name} ${currentPlayer.symbol} tira un **${diceRoll}** a casella ${currentPlayer.position}.`, 'dice');
 
         const moveResult = processPlayerMove(diceRoll);
         
-        // 💥 MODIFICA: Log Risultato della mossa
         if (moveResult.event && moveResult.event.type === 'card') {
              logEvent(`${currentPlayer.name} è atterrato su casella **${currentPlayer.position}** e pesca una carta...`, 'effect');
         } else if (!gameState.game_over && moveResult.finalPosition !== moveResult.oldPosition) {
-             // logga la posizione solo se non c'è una carta e non c'è vittoria (il log rimbalzo è dentro processPlayerMove)
              logEvent(`${currentPlayer.name} si è mosso a casella **${currentPlayer.position}**.`, 'effect');
         }
 
-        // 1. Invia il risultato della mossa con i dettagli della carta (se presente)
         io.emit('game state update', {
             ...gameState,
             moveResult: moveResult,
@@ -723,38 +705,33 @@ io.on('connection', (socket) => {
             })),
             currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null,
             cardDrawCells: CARD_DRAW_CELLS,
-            gameLog: gameState.gameLog // AGGIUNTO: Assicura che il log sia aggiornato subito
+            gameLog: gameState.gameLog 
         });
         
-        // 2. Se la mossa ha completato il ciclo (non c'è carta e non c'è vittoria), invia l'aggiornamento dello stato finale dopo un breve ritardo
         if (moveResult.isNewTurn || (moveResult.event && moveResult.event.type === 'win')) {
             setTimeout(emitGameState, 1000); 
         }
     });
 
-    // Richiesta di elaborazione dell'effetto carta
+    // Richiesta di elaborazione dell'effetto carta (nessuna modifica significativa necessaria qui)
     socket.on('process card effect request', (card) => {
-        const currentPlayer = gameState.players[gameState.currentTurnIndex]; // Ottieni il giocatore qui
+        const currentPlayer = gameState.players[gameState.currentTurnIndex]; 
         
-        // Verifica che il giocatore sia quello di turno
         if (gameState.game_over || gameState.players.length === 0 || currentPlayer.id !== socket.id) {
             return;
         }
         
         const effectResult = processCardEffect(card);
         
-        // 1. Invia il risultato dell'effetto carta a tutti (per animazioni)
         io.emit('card effect update', {
             ...effectResult,
             currentPlayerID: effectResult.currentPlayerID 
         });
 
-        // 2. Aggiornamento finale dello stato (solo se la risoluzione è finita o c'è extra turno)
         if (effectResult.isNewTurn || effectResult.extraTurn || effectResult.win) {
-             // Invia lo stato completo (inclusi i log) dopo l'animazione
              setTimeout(emitGameState, 1500);
         } else if (effectResult.cascadedCard) {
-            // Se c'è una cascata, non facciamo nulla. Il client richiamerà 'process card effect request'
+            // Il client gestirà la cascata
         }
     });
 
@@ -763,7 +740,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const playerIndex = gameState.players.findIndex(p => p.id === socket.id);
         if (playerIndex !== -1) {
-             const disconnectedPlayer = gameState.players[playerIndex]; // Prendi l'oggetto prima di rimuovere
+             const disconnectedPlayer = gameState.players[playerIndex]; 
              const disconnectedPlayerName = disconnectedPlayer.name; 
              const disconnectedPlayerSymbol = disconnectedPlayer.symbol;
              console.log(`[SERVER] Giocatore disconnesso: ${socket.id} (${disconnectedPlayerName})`);
@@ -773,9 +750,7 @@ io.on('connection', (socket) => {
              gameState.players.splice(playerIndex, 1);
              delete currentPlayers[socket.id];
 
-             // 💥 MODIFICA: Log Disconnessione
              logEvent(`**${disconnectedPlayerName} ${disconnectedPlayerSymbol}** ha lasciato la contesa.`, 'general');
-
 
              if (wasCurrent && gameState.players.length > 0) {
                  if (gameState.currentTurnIndex >= gameState.players.length) {
