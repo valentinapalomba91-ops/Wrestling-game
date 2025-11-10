@@ -35,6 +35,7 @@ header {
 h1 {
     color: gold;
     text-shadow: 2px 2px 4px #000;
+    font-size: 2.5rem; /* Reso un po' flessibile */
 }
 
 .dice-btn, #audio-toggle-btn {
@@ -49,6 +50,8 @@ h1 {
     box-shadow: 0 4px 0 #990000;
     transition: background-color 0.1s, box-shadow 0.1s;
     margin-left: 10px;
+    /* ✨ Aggiunto: Unità flessibile per la dimensione */
+    min-width: 100px; 
 }
 
 .dice-btn:hover:not(:disabled), #audio-toggle-btn:hover:not(:disabled) {
@@ -65,12 +68,16 @@ h1 {
     color: #aaa;
 }
 
-/* Layout Principale */
+/* ------------------------------------------------------------------ */
+/* 🌐 LAYOUT PRINCIPALE - RESPOONSIVE: Passa da ROW (Desktop) a COLUMN (Mobile) */
+/* ------------------------------------------------------------------ */
 main {
     display: flex;
     gap: 20px;
     width: 100%;
     max-width: 1200px;
+    /* Default: affiancato per schermi grandi */
+    flex-direction: row; 
 }
 
 /* Pannello di Stato a lato */
@@ -83,6 +90,7 @@ main {
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
     color: #f0f0f0;
     border: 1px solid #444;
+    order: 2; /* Inserito sotto la Board su Mobile */
 }
 
 #player-status {
@@ -101,21 +109,19 @@ main {
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
 }
 
----
-## ♟️ Stile del Tabellone e Caselle a Serpente (Aggiornato)
+/* ♟️ Stile del Tabellone e Caselle a Serpente */
 
 /* Contenitore del Tabellone */
 #board-container {
     flex: 2;
-    /* ✨ CORREZIONE SFONDO: Opaco e scuro per vedere meglio i numeri */
     background-color: rgba(0, 0, 0, 0.9);
     padding: 10px;
     border-radius: 12px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    order: 1; /* Inserito sopra il pannello su Mobile */
 }
 
 #board {
-    /* CRUCIALE: Queste regole attivano il layout a serpente con `cell.style.order` */
     display: grid;
     grid-template-columns: repeat(10, 1fr); 
     grid-template-rows: repeat(10, 1fr); 
@@ -137,7 +143,6 @@ main {
     transition: background-color 0.3s;
     overflow: hidden; 
     
-    /* ✨ CORREZIONE SERPENTE: Assicura che la cella riempia la griglia */
     width: 100%;
     height: 100%;
 }
@@ -161,24 +166,15 @@ main {
     z-index: 2;
     top: auto;
     left: auto;
-    font-size: 1em;
+    font-size: 1em; /* Unità di misura flessibile */
     font-weight: bold;
     color: gold; 
 }
 
-/* Caselle Speciali (Modificano lo sfondo del cerchio) */
-.start-cell::before {
-    background-color: #008000; /* Verde per Partenza */
-}
-
-.end-cell::before {
-    background-color: #ccac00; /* Oro per Arrivo */
-}
-
-/* ✅ CRUCIALE: Caselle Carta (Rosse) */
-.card-draw::before {
-    background-color: #990000; 
-}
+/* Caselle Speciali */
+.start-cell::before { background-color: #008000; }
+.end-cell::before { background-color: #ccac00; }
+.card-draw::before { background-color: #990000; }
 
 /* Stile della Pedina (Icone) */
 .pawn {
@@ -190,24 +186,10 @@ main {
     text-shadow: 0 0 5px #fff; 
 }
 
-/* Animazioni e Modal */
-
-/* 🎯 Evidenziazione per la mossa del dado (Blu) */
-.highlight::before {
-    box-shadow: 0 0 15px 7px #00ffff;
-    background-color: #0077ff; 
-}
-
-/* 🎯 Evidenziazione per movimenti da carta (Viola) */
-.highlight-card::before {
-    box-shadow: 0 0 15px 7px #ff00ff; 
-    background-color: #8a2be2; 
-}
-
-.shake {
-    animation: shake 0.5s;
-}
-
+/* Animazioni e Modal (Nessuna modifica necessaria qui) */
+.highlight::before { box-shadow: 0 0 15px 7px #00ffff; background-color: #0077ff; }
+.highlight-card::before { box-shadow: 0 0 15px 7px #ff00ff; background-color: #8a2be2; }
+.shake { animation: shake 0.5s; }
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20%, 60% { transform: translateX(-5px); }
@@ -247,17 +229,101 @@ main {
     color: #000;
 }
 
-/* Stili per le carte (bonus/malus) */
-.bonus {
-    color: #00ff80;
-    font-weight: bold;
+.bonus { color: #00ff80; font-weight: bold; }
+.malus { color: #ff3333; font-weight: bold; }
+.effect-text { font-size: 0.9em; color: #ccc; margin-top: 10px; }
+
+
+/* ========================================================== */
+/* 📱 MEDIA QUERIES (RENDE RESPONSIVE) */
+/* ========================================================== */
+
+/* Dispositivi con larghezza massima di 800px (Tablet Verticale e Cellulari) */
+@media (max-width: 800px) {
+    
+    /* 1. Layout Principale: Passa da affiancato a impilato */
+    main {
+        flex-direction: column; /* Impila la Board e il Pannello */
+        gap: 15px;
+    }
+
+    /* Board e Container: Occupano tutta la larghezza */
+    #board-container {
+        flex: none; /* Rimuovi la flessibilità relativa */
+        width: 95vw; /* Occupa quasi tutta la larghezza del dispositivo */
+        order: 1; /* Il tabellone va per primo */
+    }
+    
+    /* Pannello di Stato: Occupa tutta la larghezza sotto la Board */
+    #status-panel {
+        flex: none;
+        width: 95vw;
+        min-width: unset; /* Rimuovi la larghezza minima fissa */
+        order: 2; /* Il pannello va dopo */
+    }
+
+    /* 2. Intestazione: Impila titolo e controlli */
+    header {
+        flex-direction: column; 
+        padding: 10px;
+        max-width: 95vw;
+        margin-bottom: 10px;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+        margin-bottom: 10px;
+    }
+    
+    /* Raggruppa i pulsanti se ci sono più controlli */
+    .controls {
+        display: flex;
+        justify-content: space-around;
+        width: 100%;
+    }
+
+    .dice-btn, #audio-toggle-btn {
+        padding: 8px 15px;
+        font-size: 0.9em;
+        margin: 0 5px; /* Spazia leggermente i pulsanti */
+    }
+
+    /* 3. Tabellone: Riduci dimensione degli elementi interni */
+    .cell-number {
+        font-size: 0.8em; /* Rimpicciolisci i numeri delle caselle */
+    }
+    
+    .pawn {
+        font-size: 1.2em; /* Rimpicciolisci i token dei giocatori */
+    }
+    
+    /* 4. Modal: Riduci la dimensione del contenuto del modal */
+    .modal-content {
+        padding: 20px;
+        max-width: 90%;
+        font-size: 0.9em;
+    }
 }
-.malus {
-    color: #ff3333;
-    font-weight: bold;
-}
-.effect-text {
-    font-size: 0.9em;
-    color: #ccc;
-    margin-top: 10px;
+
+/* Dispositivi con larghezza massima di 500px (Cellulari in Verticale stretti) */
+@media (max-width: 500px) {
+    body {
+        padding: 10px;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    /* Forzo i pulsanti a riempire lo spazio */
+    .dice-btn, #audio-toggle-btn {
+        flex: 1; /* Ognuno prende metà spazio */
+        min-width: unset;
+        font-size: 0.8em;
+    }
+    
+    /* Risultato del dado più piccolo */
+    #dice-result {
+        font-size: 3em !important;
+    }
 }
