@@ -737,6 +737,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         const playerIndex = gameState.players.findIndex(p => p.id === socket.id);
+        
         if (playerIndex !== -1) {
              const disconnectedPlayer = gameState.players[playerIndex]; 
              const disconnectedPlayerName = disconnectedPlayer.name; 
@@ -750,26 +751,30 @@ io.on('connection', (socket) => {
 
              logEvent(`**${disconnectedPlayerName} ${disconnectedPlayerSymbol}** ha lasciato la contesa.`, 'general');
 
-             // ✅ MODIFICA CRITICA: Logic for safe turn index transition
              if (gameState.players.length > 0) { 
-                 // 1. Correzione dell'indice se ora punta oltre la fine dell'array
-                 if (gameState.currentTurnIndex >= gameState.players.length) {
-                     gameState.currentTurnIndex = 0;
+                 // 1. Correzione dell'indice: se il giocatore rimosso era prima, scala l'indice.
+                 if (playerIndex < gameState.currentTurnIndex) {
+                    gameState.currentTurnIndex--;
                  }
                  
-                 // 2. Se il giocatore disconnesso era quello di turno, passa al prossimo turno valido
-                 if (wasCurrent) {
-                     nextTurnLogic(); 
+                 // 2. Correzione dell'indice: se è ora fuori dai limiti (es. ultimo giocatore rimosso).
+                 if (gameState.currentTurnIndex >= gameState.players.length) {
+                    gameState.currentTurnIndex = 0;
                  }
-                 // Nota: Se non era il giocatore di turno, l'indice è stato corretto al punto 1 (se necessario)
-                 // e attende il turno del nuovo giocatore attuale (che è valido).
+                 
+                 // 3. Forziamo il passaggio del turno se il giocatore disconnesso era quello attuale
+                 // Questo è CRITICO per sbloccare il gioco.
+                 if (wasCurrent) {
+                    nextTurnLogic(); 
+                 }
+                 
              } else {
                  gameState.game_over = true;
              }
-             // -------------------------------------------------------------
+             
+             // Aggiorniamo sempre lo stato dopo la disconnessione per sbloccare l'UI.
+             emitGameState(); 
         }
-        
-        emitGameState();
     });
 });
 
