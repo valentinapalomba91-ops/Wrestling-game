@@ -250,12 +250,7 @@ function rollDice() {
     return Math.floor(Math.random() * 6) + 1;
 }
 function drawCard() {
-    // Implementazione semplificata: assegna "I lie, i cheat, I steal!" alla casella 18 se la griglia lo prevede
-    // ***NOTA***: La casella 18 è una "card draw cell". Se vuoi che la carta sia FISSA, 
-    // devi rimuoverla dal mazzo e forzarla qui. Ho rimosso il check di cascata nella card effect.
-    
     // Per ora la lasciamo nel mazzo e ci assicuriamo che venga disegnata come qualsiasi altra carta.
-    
     if (gameState.cardDeck.length === 0) {
         gameState.cardDeck = [...CARDS];
         shuffleArray(gameState.cardDeck);
@@ -264,6 +259,8 @@ function drawCard() {
     gameState.cardDeck.push(card);
     return card;
 }
+
+// Funzione modificata per calcolare il percorso STEP-BY-STEP
 function calculatePath(start, end) {
     const path = [];
     if (start < end) {
@@ -331,6 +328,8 @@ function nextTurnLogic() {
     gameState.currentTurnIndex = nextIndex;
     return gameState.players[gameState.currentTurnIndex];
 }
+
+// 💥 FUNZIONE MODIFICATA PER INVIARE IL PATH AL CLIENT
 function processPlayerMove(diceRoll, isCardMove = false) {
     const player = gameState.players[gameState.currentTurnIndex];
     const oldPosition = player.position;
@@ -338,27 +337,31 @@ function processPlayerMove(diceRoll, isCardMove = false) {
 
     let event = null;
     let isNewTurn = true;
+    let path = [];
 
     if (newPosition >= TOTAL_CELLS) {
         if (newPosition === TOTAL_CELLS) {
+            path = calculatePath(oldPosition, TOTAL_CELLS); // Cammino fino al 100
             newPosition = TOTAL_CELLS;
             player.position = newPosition;
             gameState.game_over = true;
             event = { type: 'win' };
             logEvent(`🎉 **${player.name} ${player.symbol} VINCE LA PARTITA!**`, 'win');
         } else {
-            newPosition = player.position; 
+            // Se supera il 100, la posizione non cambia (newPosition = oldPosition)
+            newPosition = oldPosition; 
             logEvent(`${player.name} ${player.symbol} tira un ${diceRoll} ma rimane a casella ${player.position} (serve un ${TOTAL_CELLS - oldPosition} esatto).`, 'general');
+            // path rimane []
         }
     } else {
+        path = calculatePath(oldPosition, newPosition);
         player.position = newPosition;
         
-        // La carta "I lie, i cheat, I steal!" è fissa prima della 20, quindi la casella 18 è un buon candidato.
+        // Controlla per casella carta DOPO aver mosso la posizione logica
         if (!isCardMove && CARD_DRAW_CELLS.includes(newPosition)) {
-             // LOGICA SEMPLIFICATA: Se la casella è la 18, pesca la carta fissa, altrimenti pesca una carta casuale.
             let drawnCard;
-            if (newPosition === 18 && card.name !== "I lie, i cheat, I steal!") {
-                 // Trova e forza "I lie, i cheat, I steal!" (Implementazione più sicura per la logica fissa)
+            if (newPosition === 18) {
+                // Trova e forza "I lie, i cheat, I steal!" se necessario (migliora la logica di forzatura)
                 drawnCard = CARDS.find(c => c.name === "I lie, i cheat, I steal!");
             } else {
                 drawnCard = drawCard();
@@ -371,10 +374,11 @@ function processPlayerMove(diceRoll, isCardMove = false) {
         }
     }
     
+    // Restituisce l'intera sequenza di caselle (path) per l'animazione client
     return {
         playerId: player.id,
         diceRoll: diceRoll,
-        path: calculatePath(oldPosition, newPosition),
+        path: path, // Array delle caselle intermedie + finale
         finalPosition: newPosition,
         event: event,
         isNewTurn: isNewTurn
@@ -395,7 +399,7 @@ function processCardEffect(card) {
     let extraTurn = false;
     let finalMoveSteps = 0;
 
-    // --- FUNZIONE AUSILIARIA PER APPLICARE MOVIMENTO E TRACKING ---
+    // --- FUNZIONE AUSILIARIA PER APPLICARE MOVIMENTO E TRACKING (Modificata per includere il path) ---
     const applyMovement = (player, steps) => {
         const oldPos = player.position;
         let newPos = oldPos + steps;
@@ -403,18 +407,22 @@ function processCardEffect(card) {
         newPos = Math.max(1, newPos);
         newPos = Math.min(TOTAL_CELLS, newPos); 
 
+        const path = calculatePath(oldPos, newPos); // Calcola il path completo per l'animazione
+
         if (newPos !== oldPos) {
             player.position = newPos;
             
             // Aggiorna o crea il record di movimento per questo giocatore
             let existingUpdate = playerUpdates.find(p => p.id === player.id);
             if (existingUpdate) {
+                // Per un movimento di carta, non si dovrebbe verificare un doppio aggiornamento,
+                // ma in caso, si aggiorna il target.
                 existingUpdate.newPos = newPos;
-                existingUpdate.path = calculatePath(existingUpdate.oldPos, newPos); 
+                existingUpdate.path = path; 
             } else {
                 playerUpdates.push({
                     id: player.id,
-                    path: calculatePath(oldPos, newPos),
+                    path: path, // <- PATH AGGIUNTO QUI
                     newPos: newPos,
                     oldPos: oldPos 
                 });
@@ -433,7 +441,6 @@ function processCardEffect(card) {
 
     // ====================================================================================================
     // 1. GESTIONE EFFETTI DI MASSA (move_all, move_all_to_start)
-    // Queste carte agiscono SEMPRE su TUTTI i giocatori.
     // ====================================================================================================
     if (card.move_all || card.move_all_to_start) {
         const steps = card.move_all || 0;
@@ -446,8 +453,7 @@ function processCardEffect(card) {
         
     } else {
         // ====================================================================================================
-        // 2. GESTIONE EFFETTI SUL SINGOLO GIOCATORE (move_steps, target_cell, reset_position, move_multiplier)
-        // Applicato SOLO al giocatore di turno se non è una carta di massa.
+        // 2. GESTIONE EFFETTI SUL SINGOLO GIOCATORE 
         // ====================================================================================================
         
         if (card.move_multiplier) {
@@ -471,7 +477,7 @@ function processCardEffect(card) {
 
 
     // ====================================================================================================
-    // 3. GESTIONE EFFETTI TARGETTIZZATI O TURNI (Avvengono DOPO il movimento del giocatore corrente/di massa)
+    // 3. GESTIONE EFFETTI TARGETTIZZATI O TURNI 
     // ====================================================================================================
 
     // Target: Pipe Bomb! (Il più avanti retrocede alla tua casella attuale.)
@@ -516,23 +522,22 @@ function processCardEffect(card) {
     }
     
     // Turni Saltati e Turni Extra
-    if (card.skip_next_turn) { // Ref Bump!, ecc. (Solo per il giocatore corrente)
+    if (card.skip_next_turn) { 
         currentPlayer.skippedTurns += 1;
         logEvent(`${currentPlayer.name} salterà il prossimo turno.`, 'malus'); 
     }
     
-    if (card.extra_turn) { // Intercessione di Heyman! (Solo per il giocatore corrente)
+    if (card.extra_turn) { 
         extraTurn = true;
         logEvent(`${currentPlayer.name} ottiene un turno extra immediato!`, 'bonus');
     }
     
-    if (card.skip_all_others) { // Underdog from the Underground!
+    if (card.skip_all_others) { 
         gameState.players.forEach(p => {
             if (p.id !== currentPlayer.id) { // Solo gli avversari
                 p.skippedTurns += 1;
             }
         });
-        // Log specifico già presente sopra
     }
     
     // Log Effetto finale 
@@ -549,14 +554,17 @@ function processCardEffect(card) {
     {
         const playerMoved = playerUpdates.some(update => update.id === currentPlayer.id && update.newPos !== update.oldPos); 
         
-        // Se la carta "I lie, i cheat, I steal!" non è stata disegnata, non c'è possibilità di cascata
-        if (playerMoved && CARD_DRAW_CELLS.includes(currentPlayer.position) && card.name !== "I lie, i cheat, I steal!") {
-             cascadedCard = {
-                 card: drawCard(),
-                 position: currentPlayer.position,
-                 playerID: currentPlayer.id
-             };
-             extraTurn = false; // Se pesca in cascata, non ottiene turno extra
+        // Se c'è stato un movimento del giocatore di turno (causato dalla carta)
+        if (playerMoved && CARD_DRAW_CELLS.includes(currentPlayer.position)) {
+            // Se la carta attuale non è 'I lie, i cheat, I steal!' (che è già un effetto speciale)
+            if (card.name !== "I lie, i cheat, I steal!") {
+                cascadedCard = {
+                    card: drawCard(),
+                    position: currentPlayer.position,
+                    playerID: currentPlayer.id
+                };
+                extraTurn = false; 
+            }
         }
     }
 
@@ -570,7 +578,7 @@ function processCardEffect(card) {
 
 
     return {
-        playerUpdates,
+        playerUpdates, // <- Include i path per l'animazione lato client
         win,
         cascadedCard,
         extraTurn,
@@ -578,7 +586,7 @@ function processCardEffect(card) {
         // OGGETTO CARTA COMPLETO INVIATO AL CLIENT
         cardApplied: { 
             playerID: currentPlayer.id,
-            card: card // Include name, text (descrizione narrativa), type, effect_desc
+            card: card 
         },
         currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null
     };
@@ -664,14 +672,8 @@ io.on('connection', (socket) => {
 
         const moveResult = processPlayerMove(diceRoll);
         
-        if (moveResult.event && moveResult.event.type === 'card') {
-             logEvent(`${currentPlayer.name} è atterrato su casella **${currentPlayer.position}** e pesca una carta...`, 'effect');
-        } else if (!gameState.game_over && moveResult.finalPosition !== moveResult.oldPosition) {
-             logEvent(`${currentPlayer.name} si è mosso a casella **${currentPlayer.position}**.`, 'effect');
-        }
-
-        io.emit('game state update', {
-            ...gameState,
+        // 💥 NUOVO EVENTO: Invia i risultati del movimento per l'animazione step-by-step
+        io.emit('move result', {
             moveResult: moveResult,
             players: gameState.players.map(p => ({ 
                 id: p.id, 
@@ -680,17 +682,13 @@ io.on('connection', (socket) => {
                 skippedTurns: p.skippedTurns,
                 name: p.name 
             })),
-            currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null,
-            cardDrawCells: CARD_DRAW_CELLS,
             gameLog: gameState.gameLog 
         });
-        
-        if (moveResult.isNewTurn || (moveResult.event && moveResult.event.type === 'win')) {
-            setTimeout(emitGameState, 1000); 
-        }
+
+        // NOTA: Il client ora deve aspettare che l'animazione finisca prima di gestire 'event' e 'isNewTurn'.
     });
 
-    socket.on('process card effect request', (card) => {
+    socket.on('card effect request', (card) => {
         const currentPlayer = gameState.players[gameState.currentTurnIndex]; 
         
         if (gameState.game_over || gameState.players.length === 0 || currentPlayer.id !== socket.id) {
@@ -699,16 +697,18 @@ io.on('connection', (socket) => {
         
         const effectResult = processCardEffect(card);
         
+        // Invia i risultati del movimento della carta (che include i path per ogni pedina mossa)
         io.emit('card effect update', {
             ...effectResult,
             currentPlayerID: effectResult.currentPlayerID 
         });
 
-        if (effectResult.isNewTurn || effectResult.extraTurn || effectResult.win) {
-             setTimeout(emitGameState, 1500);
-        } else if (effectResult.cascadedCard) {
-            // Il client gestirà la cascata
-        }
+        // NOTA: Il client ora deve gestire l'animazione degli 'playerUpdates' prima di passare il turno.
+    });
+    
+    // Nuovo listener dal client per richiedere il prossimo stato dopo l'animazione (DEVI AGGIUNGERLO NEL CLIENT)
+    socket.on('movement finished', () => {
+        emitGameState();
     });
 
 
