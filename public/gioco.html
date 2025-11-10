@@ -6,35 +6,43 @@
         const socket = io();
         const TOTAL_CELLS = 100;
 
-        // 💥 NUOVI ELEMENTI UI
+        // 💥 ELEMENTI UI
+        // Modali
         const nameInputModal = document.getElementById('name-input-modal');
+        const cardModal = document.getElementById('card-modal');
+        const winModal = document.getElementById('win-modal');
+
+        // Input/Bottoni
         const playerNicknameInput = document.getElementById('player-nickname');
         const joinGameBtn = document.getElementById('join-game-btn');
+        const rollDiceBtn = document.getElementById('roll-dice-btn');
+        const resolveCardBtn = document.getElementById('resolve-card-btn');
+        const audioToggleBtn = document.getElementById('audio-toggle-btn');
+
+
+        // Dati e Status
+        const board = document.getElementById('board');
+        const diceResult = document.getElementById('dice-result');
         const logContainer = document.getElementById('log-container');
+        const messageBox = document.getElementById('message-box');
+        const playerStatus = document.getElementById('player-status');
         const myPlayerInfo = document.getElementById('my-player-info');
         const mainStatusMessage = document.getElementById('main-status-message');
         const statusIcon = document.getElementById('status-icon');
         const statusText = document.getElementById('status-text');
 
-        // Elementi UI esistenti
-        const board = document.getElementById('board');
-        const rollDiceBtn = document.getElementById('roll-dice-btn');
-        const diceResult = document.getElementById('dice-result');
-        const playerStatus = document.getElementById('player-status');
-        const messageBox = document.getElementById('message-box');
-        const cardModal = document.getElementById('card-modal');
-        const resolveCardBtn = document.getElementById('resolve-card-btn');
+        // Elementi Modale Carta
         const cardName = document.getElementById('card-name');
         const cardText = document.getElementById('card-text');
         const cardEffectDesc = document.getElementById('card-effect-desc');
-        const winModal = document.getElementById('win-modal');
+
+        // Elementi Modale Vittoria
         const winnerMessage = document.getElementById('winner-message');
-        const audioToggleBtn = document.getElementById('audio-toggle-btn');
 
 
         let boardInitialized = false;
         let lastGameState = null;
-        // 🔑 CHIAVE: Stato che blocca il gioco durante le animazioni di movimento.
+        // 🔑 Stato che blocca il gioco durante animazioni o attesa interazione modale
         let isWaitingForAnimation = false; 
         let myPlayerName = ''; 
 
@@ -52,6 +60,7 @@
         sounds.move.volume = 0.3;
         sounds.win.volume = 0.8;
 
+        /** Riproduce un suono se l'audio è abilitato */
         function playSound(soundKey) {
             if (audioEnabled) {
                 const sound = sounds[soundKey];
@@ -62,14 +71,13 @@
 
         audioToggleBtn.addEventListener('click', () => {
             audioEnabled = !audioEnabled;
-            // 💡 Miglioramento: Uso di icone Font Awesome se possibile
             audioToggleBtn.innerHTML = audioEnabled ? '🔊 Muta' : '🔇 Audio ON';
             if (!audioEnabled) {
                 Object.values(sounds).forEach(s => s.pause());
             }
         });
 
-        // 💥 Funzione per l'offset delle pedine
+        // 💥 Posizioni di offset per le pedine (per evitare sovrapposizioni)
         const PAWN_OFFSETS = [
             { x: 0, y: 0 },         // Posizione base (centro)
             { x: -5, y: -5 },       // Offset 1: in alto a sinistra
@@ -154,7 +162,9 @@
 
             // APPLICA OFFSET: usa l'indice del giocatore su quella cella
             // Uso il modulo per gestire più di 5 giocatori sulla stessa cella, riciclando gli offset
-            const offsetIndex = (playerIndexOnCell !== undefined) ? (playerIndexOnCell % PAWN_OFFSETS.length) : 0;
+            const offsetIndex = (playerIndexOnCell !== undefined && playerIndexOnCell >= 0) 
+                ? (playerIndexOnCell % PAWN_OFFSETS.length) 
+                : 0;
             const offset = PAWN_OFFSETS[offsetIndex];
 
             // Applica l'offset in pixel
@@ -168,20 +178,21 @@
         /** Esegue l'animazione di movimento su un percorso di caselle */
         function animateMove(playerId, path, finalPosition, allPlayers) {
             const pawn = document.getElementById(`pawn-${playerId}`);
+            if (!pawn) return Promise.resolve(); // Protezione se la pedina non esiste
+            
             const durationPerCell = 150; 
             let delay = 0;
             
-            // Assicura che la transizione sia impostata prima di iniziare
+            // Assicura che la transizione sia impostata prima di iniziare l'animazione multi-step
             pawn.style.transition = `transform ${path.length * durationPerCell / 1000}s linear`; 
 
             return new Promise(resolve => {
                 if (path.length === 0) {
-                    // Trova l'indice della pedina sulla casella finale per l'offset
+                    // Movimento istantaneo (es. solo effetto carta senza percorso)
                     const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
                     const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
                     
                     movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
-                    // Rimuove la transizione dopo un breve ritardo per le mosse successive
                     setTimeout(() => pawn.style.transition = 'none', 10); 
                     resolve();
                     return;
@@ -197,12 +208,6 @@
                             cell.classList.add('highlight');
                             playSound('move');
                         }
-                    }, delay - 50);
-
-                    // 2. Muovi la pedina
-                    setTimeout(() => {
-                        // Per i passi intermedi, usiamo l'offset 0 (centro)
-                        movePawnToCell(pawn, cellNumber, 0);
                         
                         // Rimuovi l'evidenziazione dalla cella precedente
                         if (index > 0) {
@@ -211,6 +216,13 @@
                                 prevCell.classList.remove('highlight');
                             }
                         }
+                    }, delay - durationPerCell); // Attiva l'highlight poco prima del movimento
+
+
+                    // 2. Muovi la pedina
+                    setTimeout(() => {
+                        // Per i passi intermedi, usiamo l'offset 0 (centro)
+                        movePawnToCell(pawn, cellNumber, 0);
                         
                         // Alla fine dell'animazione
                         if (index === path.length - 1) {
@@ -220,8 +232,8 @@
                                 const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
                                 const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
                                 
-                                // Rimuovi la transizione CSS prima dell'ultimo movimento per applicare l'offset finale
-                                pawn.style.transition = 'transform 0.3s ease-out'; // Una transizione più elegante per il posizionamento finale
+                                // Transizione più elegante per il posizionamento finale
+                                pawn.style.transition = 'transform 0.3s ease-out'; 
                                 movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
 
                                 setTimeout(() => {
@@ -232,7 +244,7 @@
                                     }
                                     resolve();
                                 }, 300); // Durata della transizione finale
-                            }, durationPerCell); // Attendi la fine del movimento all'ultima cella
+                            }, durationPerCell); 
                         }
                     }, delay);
                 });
@@ -259,15 +271,14 @@
             updateLog(state.gameLog);
             
             // 4. Aggiorna lo stato dei giocatori e del turno
-            // (La logica del dado disabilitato/abilitato è qui, in base al turno e allo stato di animazione)
             updateStatus(state); 
         });
 
         // ==========================================================
-        // FIX: NUOVO LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO
+        // LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO
         // ==========================================================
         socket.on('dice roll result', async (moveResult) => {
-            // Lo stato isWaitingForAnimation è già impostato a TRUE dal click.
+            // isWaitingForAnimation è già impostato a TRUE dal click sul dado.
             rollDiceBtn.disabled = true;
             
             // 1. Anima il tiro del dado
@@ -279,116 +290,114 @@
             setTimeout(() => {
                 diceResult.classList.remove('shake');
                 
+                // 🔑 IMPORTANTE: Usa lastGameState.players per calcolare l'offset finale corretto.
                 animateMove(
                     moveResult.playerId, 
                     moveResult.path, 
                     moveResult.finalPosition,
                     lastGameState.players
                 ).then(() => {
-                    // 3. L'ANIMAZIONE DI MOVIMENTO È FINITA:
+                    // L'ANIMAZIONE DI MOVIMENTO È FINITA:
                     isWaitingForAnimation = false; // Rilascia lo stato di animazione
                     
                     // Invia il messaggio al server per avviare il prossimo passo (carta o fine turno).
                     socket.emit('movement finished', { playerId: moveResult.playerId });
                     
-                    // 🔑 FIX: Chiamiamo un update rapido dello stato UI per riflettere lo stato di attesa eventuale carta
+                    // Chiamiamo un update rapido dello stato UI (potrebbe abilitare il dado per la carta)
                     updateStatus(lastGameState); 
                 });
             }, 500); // Ritardo per l'animazione del dado
         });
 
         // ==========================================================
-        // FIX: NUOVO LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
+        // LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
         // ==========================================================
         socket.on('card to draw', (eventData) => {
-            isWaitingForAnimation = false; // Se si apre la modale, l'animazione di movimento è finita
+            // isWaitingForAnimation = false; // Non è strettamente necessario qui, l'animazione precedente è finita
             showCardModal(eventData.card);
-            // Il dado è disabilitato da updateStatus perché isWaitingForCard è true
         });
 
         // ==========================================================
-        // FIX: GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA
+        // GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA
         // ==========================================================
         socket.on('card effect update', async (data) => {
             isWaitingForAnimation = true; // Blocca tutto per l'animazione degli effetti a cascata
+            updateStatus(lastGameState); // Aggiorna lo stato UI a "Movimento in corso..."
             
             if (data.playerUpdates && data.playerUpdates.length > 0) {
-                // 🔑 FIX: Aggiorna lo stato dei giocatori in lastGameState prima di calcolare l'animazione
+                // Aggiorna lo stato dei giocatori prima di animare per avere la posizione finale corretta per l'offset
                 const playerUpdatesMap = new Map(data.playerUpdates.map(p => [p.id, p]));
                 
-                // Aggiorna lo stato dei giocatori prima di animare. **IMPORTANTE**
                 const playersAfterCard = lastGameState.players.map(p => {
                     const update = playerUpdatesMap.get(p.id);
                     if (update) {
-                        // Aggiorna la posizione finale per l'animazione
                         return { ...p, position: update.newPos };
                     }
                     return p;
                 });
                 lastGameState.players = playersAfterCard; // Aggiorna lo stato globale
-                updatePawns(lastGameState.players); // Aggiorna le pedine sulla posizione iniziale dell'effetto (visiva)
-                
 
                 const movePromises = data.playerUpdates.map(update => {
-                    // Animiamo da oldPos (già in lastGameState) a newPos
+                    // Animiamo da oldPos (quella precedente nel DOM/CSS) a newPos
                     return animateMove(update.id, update.path, update.newPos, playersAfterCard);
                 });
                 
                 await Promise.all(movePromises);
                 
-                // Ricalcola gli offset finali per la posizione di arrivo
+                // Ricalcola gli offset finali (Importante in caso di più mosse simultanee)
                 updatePawns(lastGameState.players);
             }
 
+            // Gestione Vittoria
             if (data.win) {
                 const winner = lastGameState.players.find(p => p.id === data.win.playerId);
                 showWin(winner);
                 isWaitingForAnimation = false;
+                updateStatus(lastGameState); // Aggiorna lo stato a "partita finita"
                 return;
             }
             
+            // Gestione Carta a Cascata (es. pesco un 'Torna alla partenza' che finisce su un'altra casella carta)
             if (data.cascadedCard) {
-                // Se c'è una carta a cascata, mostra immediatamente
-                isWaitingForAnimation = false; // 🔑 Rilascia l'animazione per mostrare la carta
+                isWaitingForAnimation = false; 
                 showCardModal(data.cascadedCard.card);
                 return;
             }
             
             // L'animazione è finita, avvisa il server per far passare il turno
-            isWaitingForAnimation = false; // 🔑 Rilascia lo stato di blocco
+            isWaitingForAnimation = false; 
             socket.emit('card animation finished'); 
-            // updateStatus verrà chiamato dal prossimo 'game state update'
+            updateStatus(lastGameState); // Aggiorna lo stato per il nuovo turno/giocatore
         });
 
         // --------------------------------------------------
-        // 🔨 FUNZIONI DI SUPPORTO UI E LOG (POCHE MODIFICHE)
+        // 🔨 FUNZIONI DI SUPPORTO UI E LOG
         // --------------------------------------------------
         
         /** AGGIORNAMENTO COMPLETO DELLA CRONOLOGIA DAL SERVER */
         function updateLog(gameLog) {
-            // Pulisce il contenitore precedente
             messageBox.innerHTML = ''; 
             
-            // Itera sull'array gameLog ricevuto e aggiunge ogni entry
+            // Utilizza un Fragment per appendere una sola volta (migliora le performance DOM)
+            const fragment = document.createDocumentFragment();
+            
             gameLog.forEach(entry => {
                 const logEntry = document.createElement('div');
-                // Usa la proprietà 'type' per applicare stili (es. log-dice, log-win)
                 logEntry.className = `log-entry log-${entry.type}`; 
                 
-                // Sostituisce il grassetto Markdown (**) con il tag HTML <strong>
                 let messageHTML = entry.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                
-                // Formato: [HH:MM:SS] Messaggio
                 logEntry.innerHTML = `[${entry.timestamp}] ${messageHTML}`; 
                 
-                // Prepend per mostrare i messaggi più recenti in cima
-                messageBox.prepend(logEntry);
+                fragment.prepend(logEntry); // Usa prepend sul fragment se vuoi l'ordine inverso
             });
             
+            messageBox.appendChild(fragment);
+
             // Mantiene il log scrollato in alto (per vedere le ultime azioni)
             logContainer.scrollTop = 0;
         }
 
+        /** Crea, aggiorna e riposiziona tutte le pedine in base allo stato dei giocatori. */
         function updatePawns(players) {
             // Raggruppa le pedine per casella per calcolare l'offset
             const positions = {};
@@ -397,7 +406,6 @@
                 positions[p.position].push(p);
             });
 
-            // 💡 Miglioramento: Mostra lo stato di tutti i giocatori in una lista (separata dal pannello di stato principale)
             let statusListHtml = ''; 
 
             players.forEach(player => {
@@ -407,28 +415,29 @@
                     pawn = document.createElement('div');
                     pawn.id = `pawn-${player.id}`;
                     pawn.className = 'pawn';
-                    // Aggiunto l'id per il simbolo/nome per una gestione più flessibile degli stili
+                    // Simbolo e nome per l'UI della pedina
                     pawn.innerHTML = `<span class="pawn-symbol" id="symbol-${player.id}">${player.symbol}</span><span class="pawn-name">${player.name}</span>`;
                     board.appendChild(pawn);
                 }
                 
-                // Aggiorna il colore e la classe di turno
+                // Aggiorna il colore e lo z-index
                 pawn.style.backgroundColor = player.color;
-                pawn.style.zIndex = 10 + player.position; 
+                pawn.style.zIndex = 10 + player.position; // Più avanti sulla mappa, più in alto nel DOM
                 pawn.classList.remove('active-pawn');
                 
-                // 💡 Gestione stato 'Skip Turn'
+                // Gestione stato 'Skip Turn'
+                const pawnSymbolSpan = document.getElementById(`symbol-${player.id}`);
                 if (player.skippedTurns > 0) {
                     pawn.classList.add('pawn-skipped');
-                    document.getElementById(`symbol-${player.id}`).textContent = '🚫';
+                    if (pawnSymbolSpan) pawnSymbolSpan.textContent = '🚫';
                 } else {
                     pawn.classList.remove('pawn-skipped');
-                    document.getElementById(`symbol-${player.id}`).textContent = player.symbol;
+                    if (pawnSymbolSpan) pawnSymbolSpan.textContent = player.symbol;
                 }
 
                 if (lastGameState && player.id === lastGameState.currentPlayerID) {
                     pawn.classList.add('active-pawn');
-                    pawn.style.zIndex = 100; 
+                    pawn.style.zIndex = 100; // Pedina del giocatore corrente sempre in primo piano
                 }
                 
                 // Calcola l'indice del giocatore sulla casella per l'offset
@@ -453,12 +462,14 @@
         function updateStatus(state) {
             const currentPlayer = state.players.find(p => p.id === state.currentPlayerID);
             const myPlayer = state.players.find(p => p.id === socket.id);
-            // 🔑 FIX SCHERMATA BIANCA: Determina se la modale è visibile in questo momento
+            // Determina se la modale carta è visibile in questo momento
             const isWaitingForCard = cardModal.classList.contains('show');
 
             // AGGIORNA LE INFORMAZIONI DEL MIO GIOCATORE
             if (myPlayer) {
                 myPlayerInfo.innerHTML = `Sei: <span style="color: ${myPlayer.color}; font-weight: bold;">${myPlayer.name} ${myPlayer.symbol}</span>`;
+            } else {
+                myPlayerInfo.textContent = `Sei in attesa di unirti...`;
             }
 
             // Inizializza icona e classe
@@ -479,30 +490,25 @@
             if (currentPlayer) {
                 const isMyTurn = currentPlayer.id === socket.id;
                 
-                // 🔑 FIX: La disabilitazione è più robusta: non è il mio turno O è in animazione O si attende carta O deve saltare
+                // La disabilitazione è più robusta: non è il mio turno O è in animazione O si attende carta O deve saltare
                 const shouldDisableRoll = !isMyTurn || isWaitingForAnimation || isWaitingForCard || currentPlayer.skippedTurns > 0;
                 rollDiceBtn.disabled = shouldDisableRoll;
 
-                mainStatusMessage.classList.add('alert-info');
                 
                 if (isWaitingForAnimation) {
                     statusText.textContent = "Movimento in corso...";
-                    mainStatusMessage.classList.remove('alert-info');
                     mainStatusMessage.classList.add('alert-warning');
-                    statusIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; // Icona di caricamento
+                    statusIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; 
                 } else if (isWaitingForCard) {
                     statusText.textContent = "Carta pescata! Risolvi l'effetto.";
-                    mainStatusMessage.classList.remove('alert-info');
                     mainStatusMessage.classList.add('alert-warning');
                     statusIcon.innerHTML = '<i class="fas fa-hand-paper"></i>'; 
                 } else if (isMyTurn) {
-                    if (myPlayer && myPlayer.skippedTurns > 0) {
-                        mainStatusMessage.classList.remove('alert-info');
+                    if (currentPlayer.skippedTurns > 0) {
                         mainStatusMessage.classList.add('alert-danger');
-                        statusText.textContent = `Sei bloccato. Salterai ancora ${myPlayer.skippedTurns} turno/i.`;
+                        statusText.textContent = `Sei bloccato. Salterai ancora ${currentPlayer.skippedTurns} turno/i.`;
                         statusIcon.innerHTML = '<i class="fas fa-ban"></i>';
                     } else {
-                        mainStatusMessage.classList.remove('alert-info');
                         mainStatusMessage.classList.add('alert-success');
                         statusText.textContent = "È il tuo turno! Tira il dado. 🎲";
                         statusIcon.innerHTML = '<i class="fas fa-arrow-right"></i>';
@@ -515,6 +521,7 @@
             }
         }
         
+        /** Mostra la modale della carta pescata e blocca il dado. */
         function showCardModal(card) {
             playSound('cardDraw');
             cardName.textContent = card.name;
@@ -525,23 +532,26 @@
             cardName.style.color = card.type === 'malus' ? '#ff3333' : (card.type === 'bonus' ? '#00ff80' : 'gold');
             
             cardModal.classList.add('show');
-            // 🔑 FIX SCHERMATA BIANCA: Chiama updateStatus per bloccare il dado
+            
+            // Chiama updateStatus per bloccare il dado e mostrare lo stato di attesa carta
             updateStatus(lastGameState); 
             
             resolveCardBtn.onclick = () => {
                 cardModal.classList.remove('show');
                 // Invia il segnale al server per applicare l'effetto e continuare il turno
-                // Questo triggererà l'evento 'card effect update' dal server, che poi gestirà l'animazione e il fine turno.
                 socket.emit('process card effect request', card);
                 
-                // Blocca il dado forzatamente in attesa dell'animazione effetto carta/passaggio turno
+                // Blocca il dado e aggiorna lo stato UI in attesa dell'animazione effetto carta/passaggio turno
                 rollDiceBtn.disabled = true; 
+                isWaitingForAnimation = true;
+                updateStatus(lastGameState);
             };
         }
         
+        /** Mostra la modale di vittoria. */
         function showWin(winner) {
             playSound('win');
-            winnerMessage.innerHTML = `${winner.name} ${winner.symbol} ha vinto la **Royal Rumble**!`;
+            winnerMessage.innerHTML = `<span style="color: ${winner.color}; font-weight: bold;">${winner.name} ${winner.symbol}</span> ha vinto la **Royal Rumble**!`;
             winModal.classList.add('show');
             rollDiceBtn.disabled = true;
         }
@@ -553,7 +563,7 @@
         // Gestione del login
         joinGameBtn.addEventListener('click', () => {
             const nickname = playerNicknameInput.value.trim();
-            if (nickname.length >= 3 && nickname.length <= 15) { // Controllo lunghezza aggiornato
+            if (nickname.length >= 3 && nickname.length <= 15) { 
                 myPlayerName = nickname;
                 nameInputModal.classList.remove('show');
                 // Invia il nome al server per essere aggiunto alla partita
@@ -570,27 +580,28 @@
             }
         });
 
+        // Gestione del tiro del dado
         rollDiceBtn.addEventListener('click', () => {
-            // 🔑 FIX: Blocca la UI immediatamente al click e non solo con l'arrivo della risposta del server.
             if (!rollDiceBtn.disabled && !isWaitingForAnimation) {
-                // Disabilita immediatamente per prevenire doppi click
+                // 1. Blocca la UI immediatamente
                 rollDiceBtn.disabled = true; 
-                isWaitingForAnimation = true; // Blocca la UI
-                socket.emit('roll dice request');
+                isWaitingForAnimation = true; 
                 
-                // 🔑 MIGLIORAMENTO: Aggiorna lo stato per mostrare "Movimento in corso..." immediatamente
+                // 2. Aggiorna lo stato UI per mostrare "Movimento in corso..."
                 updateStatus(lastGameState); 
+                
+                // 3. Invia la richiesta al server
+                socket.emit('roll dice request');
             }
         });
 
-        // Inizializza il tabellone quando lo stato iniziale arriva (dopo il login)
+        // Gestione riconnessione/prima connessione
         socket.on('connect', () => {
             if (myPlayerName) {
                 nameInputModal.classList.remove('show');
                 socket.emit('join game', myPlayerName); 
             } else {
                 nameInputModal.classList.add('show');
-                // Pulisci il campo se l'utente non aveva inserito nulla al primo tentativo
                 playerNicknameInput.value = ''; 
                 playerNicknameInput.focus();
             }
