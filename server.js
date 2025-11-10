@@ -217,7 +217,6 @@ const CARDS = [
 ];
 
 let gameState = {
-    // ... (omesso per brevità, stato invariato)
     players: [],
     currentTurnIndex: 0,
     game_over: false,
@@ -227,7 +226,7 @@ let gameState = {
     gameLog: [], 
 };
 
-// --- FUNZIONI DI LOGICA DI GIOCO (Stato invariato) ---
+// --- FUNZIONI DI LOGICA DI GIOCO ---
 
 function logEvent(message, type = 'general') {
     const logEntry = {
@@ -250,7 +249,6 @@ function rollDice() {
     return Math.floor(Math.random() * 6) + 1;
 }
 function drawCard() {
-    // Per ora la lasciamo nel mazzo e ci assicuriamo che venga disegnata come qualsiasi altra carta.
     if (gameState.cardDeck.length === 0) {
         gameState.cardDeck = [...CARDS];
         shuffleArray(gameState.cardDeck);
@@ -260,7 +258,6 @@ function drawCard() {
     return card;
 }
 
-// Funzione modificata per calcolare il percorso STEP-BY-STEP
 function calculatePath(start, end) {
     const path = [];
     if (start < end) {
@@ -276,20 +273,15 @@ function calculatePath(start, end) {
 }
 /**
  * Trova il giocatore target (il più avanti o il più indietro).
- * @param {'farthest_backward' | 'farthest_ahead'} type - Tipo di target da trovare.
- * @param {string} currentPlayerID - ID del giocatore corrente da escludere.
- * @returns {Object | null} Il giocatore target o null.
  */
 function findTargetPlayer(type, currentPlayerID) {
     const otherPlayers = gameState.players.filter(p => p.id !== currentPlayerID);
     if (otherPlayers.length === 0) return null;
 
     if (type === 'farthest_backward') {
-        // Trova il giocatore con la posizione più bassa
         return otherPlayers.reduce((farthest, p) => p.position < farthest.position ? p : farthest, otherPlayers[0]);
     }
     if (type === 'farthest_ahead') {
-        // Trova il giocatore con la posizione più alta
         return otherPlayers.reduce((farthest, p) => p.position > farthest.position ? p : farthest, otherPlayers[0]);
     }
     return null;
@@ -361,16 +353,15 @@ function processPlayerMove(diceRoll, isCardMove = false) {
         if (!isCardMove && CARD_DRAW_CELLS.includes(newPosition)) {
             let drawnCard;
             if (newPosition === 18) {
-                // Trova e forza "I lie, i cheat, I steal!" se necessario (migliora la logica di forzatura)
                 drawnCard = CARDS.find(c => c.name === "I lie, i cheat, I steal!");
             } else {
                 drawnCard = drawCard();
             }
 
             event = { type: 'card', data: drawnCard };
-            isNewTurn = false; 
+            isNewTurn = false; // NON è un nuovo turno finché la carta non è risolta
         } else {
-            nextTurnLogic();
+            nextTurnLogic(); // Passa al turno successivo solo se non c'è una carta
         }
     }
     
@@ -388,8 +379,6 @@ function processPlayerMove(diceRoll, isCardMove = false) {
 
 /**
  * Applica l'effetto della carta e gestisce i movimenti a cascata.
- * Logica corretta per l'isolamento degli effetti sui singoli vs. effetti di massa.
- * @param {Object} card - L'oggetto carta da elaborare.
  */
 function processCardEffect(card) {
     const currentPlayer = gameState.players[gameState.currentTurnIndex];
@@ -399,7 +388,7 @@ function processCardEffect(card) {
     let extraTurn = false;
     let finalMoveSteps = 0;
 
-    // --- FUNZIONE AUSILIARIA PER APPLICARE MOVIMENTO E TRACKING (Modificata per includere il path) ---
+    // --- FUNZIONE AUSILIARIA PER APPLICARE MOVIMENTO E TRACKING ---
     const applyMovement = (player, steps) => {
         const oldPos = player.position;
         let newPos = oldPos + steps;
@@ -407,16 +396,13 @@ function processCardEffect(card) {
         newPos = Math.max(1, newPos);
         newPos = Math.min(TOTAL_CELLS, newPos); 
 
-        const path = calculatePath(oldPos, newPos); // Calcola il path completo per l'animazione
+        const path = calculatePath(oldPos, newPos); 
 
         if (newPos !== oldPos) {
             player.position = newPos;
             
-            // Aggiorna o crea il record di movimento per questo giocatore
             let existingUpdate = playerUpdates.find(p => p.id === player.id);
             if (existingUpdate) {
-                // Per un movimento di carta, non si dovrebbe verificare un doppio aggiornamento,
-                // ma in caso, si aggiorna il target.
                 existingUpdate.newPos = newPos;
                 existingUpdate.path = path; 
             } else {
@@ -573,7 +559,7 @@ function processCardEffect(card) {
     if (extraTurn || cascadedCard || win) {
         isNewTurn = false;
     } else {
-        nextTurnLogic();
+        nextTurnLogic(); // Solo qui passa il turno se non ci sono cascate/extra turn
     }
 
 
@@ -599,41 +585,40 @@ function processCardEffect(card) {
 let currentPlayers = {};
 
 function getEssentialGameState() {
-    return {
-        players: gameState.players.map(p => ({
-            id: p.id,
-            position: p.position,
-            symbol: p.symbol,
-            skippedTurns: p.skippedTurns,
-            name: p.name 
-        })),
-        TOTAL_CELLS: TOTAL_CELLS,
-        currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null,
-        cardDrawCells: CARD_DRAW_CELLS,
-        gameLog: gameState.gameLog,
-        game_over: gameState.game_over 
-    };
+    return {
+        players: gameState.players.map(p => ({
+            id: p.id,
+            position: p.position,
+            symbol: p.symbol,
+            skippedTurns: p.skippedTurns,
+            name: p.name 
+        })),
+        TOTAL_CELLS: TOTAL_CELLS,
+        currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null,
+        cardDrawCells: CARD_DRAW_CELLS,
+        gameLog: gameState.gameLog,
+        game_over: gameState.game_over 
+    };
 }
 
 function emitGameState() {
-    io.emit('game state update', getEssentialGameState());
+    io.emit('game state update', getEssentialGameState());
 }
 
 /**
- * Funzione helper per inviare il risultato del dado per l'animazione.
- * Non include il passaggio del turno finale, che avviene dopo l'animazione lato client.
- * @param {Object} moveResult - Il risultato del movimento del dado.
- */
+ * Funzione helper per inviare il risultato del dado per l'animazione.
+ * Include lo stato attuale (posizione cambiata ma turno non ancora passato).
+ */
 function emitDiceResult(moveResult) {
-    io.emit('dice roll result', { // Nuovo evento: dice roll result
-        moveResult: moveResult,
-        ...getEssentialGameState() // Inviamo lo stato aggiornato (posizione cambiata)
-    });
+    // 💥 MODIFICA: Invia un evento specifico per l'animazione del dado
+    io.emit('dice roll result', { 
+        moveResult: moveResult,
+        ...getEssentialGameState() 
+    });
 }
 
 
 io.on('connection', (socket) => {
-    // ... (Gestione connessione e set player name invariata) ...
     console.log(`[SERVER] Nuovo giocatore connesso: ${socket.id}`);
 
     const newPlayer = {
@@ -683,14 +668,10 @@ io.on('connection', (socket) => {
         
         logEvent(`${currentPlayer.name} ${currentPlayer.symbol} tira un **${diceRoll}** a casella ${currentPlayer.position}.`, 'dice');
 
-        // processPlayerMove aggiorna la posizione logica e decide se è il turno successivo o una carta
         const moveResult = processPlayerMove(diceRoll);
         
-        // 💥 NUOVA LOGICA: Invia solo il risultato per l'animazione. Non chiamiamo nextTurnLogic (se c'è una carta)
-        // processPlayerMove ha già chiamato nextTurnLogic se non c'era una carta.
+        // 💥 Invia il risultato del movimento per l'animazione. Non passa il turno qui se c'è una carta.
         emitDiceResult(moveResult); 
-        
-        // NOTA: Il client ora deve chiamare 'movement finished' dopo l'animazione.
     });
 
     socket.on('card effect request', (card) => {
@@ -702,42 +683,41 @@ io.on('connection', (socket) => {
         
         const effectResult = processCardEffect(card);
         
-        // Invia i risultati del movimento della carta (che include i path per ogni pedina mossa)
+        // Invia i risultati dell'effetto carta (che include i path per ogni pedina mossa)
         io.emit('card effect update', {
             ...effectResult,
-            ...getEssentialGameState()
+            ...getEssentialGameState()
         });
 
-        // NOTA: Il client ora deve gestire l'animazione degli 'playerUpdates' prima di passare il turno.
+        // Il client deve inviare 'card animation finished' dopo l'animazione.
     });
     
-    // Nuovo listener dal client per richiedere il prossimo stato dopo l'animazione del dado
+    // 🎯 NUOVO LISTENER: Riceve conferma di fine movimento del dado
     socket.on('movement finished', (moveResult) => {
-        // moveResult viene inviato dal client dopo aver completato l'animazione del tiro del dado.
-        
-        // Se c'è un evento da gestire (carta o vittoria), il client deve innescarlo.
-        if (moveResult && (moveResult.event || moveResult.isNewTurn)) {
-            
-            // Per il WIN e i Turni Passati Normali: Emetti lo stato finale (che ora include il passaggio di turno)
-            if (moveResult.event && moveResult.event.type === 'win') {
-                emitGameState(); 
-            } else if (moveResult.isNewTurn) {
-                emitGameState();
-            } else if (moveResult.event && moveResult.event.type === 'card') {
-                // Se è una carta, invia un evento specifico per mostrare la carta.
-                io.emit('card to draw', {
-                    card: moveResult.event.data,
-                    playerID: moveResult.playerId
-                });
-            }
-        } 
+        
+        if (moveResult && moveResult.playerId === socket.id) {
+            // Caso 1: Vittoria o Turno Passato Normalmente
+            if (moveResult.event && moveResult.event.type === 'win') {
+                emitGameState(); 
+            } else if (moveResult.isNewTurn) {
+                emitGameState(); // Lo stato è già aggiornato con il prossimo giocatore in nextTurnLogic
+            } 
+            // Caso 2: Carta Pescata
+            else if (moveResult.event && moveResult.event.type === 'card') {
+                // Invia un evento specifico per mostrare la carta (non aggiorna lo stato finale)
+                io.emit('card to draw', {
+                    card: moveResult.event.data,
+                    playerID: moveResult.playerId
+                });
+            }
+        }
     });
 
-    // Nuovo listener dal client dopo l'animazione di un effetto carta
-    socket.on('card animation finished', () => {
-        // Dopo l'animazione degli effetti, emette lo stato per passare al prossimo turno o gestire extra turn/cascata.
-        emitGameState();
-    });
+    // 🎯 NUOVO LISTENER: Riceve conferma di fine animazione effetto carta
+    socket.on('card animation finished', () => {
+        // Dopo l'animazione degli effetti, emette lo stato per passare al prossimo turno o gestire extra turn/cascata.
+        emitGameState();
+    });
 
 
     socket.on('disconnect', () => {

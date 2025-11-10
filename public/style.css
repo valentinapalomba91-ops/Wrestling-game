@@ -4,13 +4,13 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    
+
     /* SFONDO DINAMICO */
-    background-image: url('/ring.png'); 
+    background-image: url('/ring.png');
     background-size: cover;
     background-attachment: fixed;
-    background-color: #1a1a1a; 
-    
+    background-color: #1a1a1a;
+
     color: #fff; /* Testo chiaro sullo sfondo scuro */
     margin: 0;
     padding: 20px;
@@ -29,9 +29,9 @@ header {
     align-items: center;
     margin-bottom: 20px;
     padding: 10px 20px;
-    background-color: rgba(0, 0, 0, 0.85); 
+    background-color: rgba(0, 0, 0, 0.85);
     border-radius: 8px;
-    box-shadow: 0 0 15px rgba(255, 255, 0, 0.5); 
+    box-shadow: 0 0 15px rgba(255, 255, 0, 0.5);
     border: 2px solid gold;
 }
 
@@ -68,7 +68,7 @@ h1 {
     box-shadow: 0 4px 0 #990000;
     transition: background-color 0.1s, box-shadow 0.1s;
     margin-left: 10px;
-    min-width: 100px; 
+    min-width: 100px;
 }
 
 .dice-btn:hover:not(:disabled), #audio-toggle-btn:hover:not(:disabled) {
@@ -93,7 +93,7 @@ main {
     gap: 20px;
     width: 100%;
     max-width: 1200px;
-    flex-direction: row; 
+    flex-direction: row;
 }
 
 /* Pannello di Stato a lato */
@@ -108,6 +108,40 @@ main {
     border: 1px solid #444;
     order: 2;
 }
+
+/* 💥 NUOVI STILI PER PANNELLO DI STATO E GIOCATORI */
+#status-panel h2 {
+    color: #ffd700; /* Oro */
+    border-bottom: 2px solid #555;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.player-status-list {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #444;
+    border-radius: 5px;
+    background-color: #1a1a1a;
+}
+
+.player-entry {
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: #ccc;
+    padding: 2px 0;
+}
+
+.player-entry.active-player {
+    font-weight: bold;
+    color: #fff;
+    background-color: #333;
+    padding: 2px 5px;
+    border-radius: 3px;
+    border-left: 3px solid #ffd700;
+}
+/* FINE NUOVI STILI PANNELLO */
+
 
 #player-status {
     font-weight: bold;
@@ -125,15 +159,32 @@ main {
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
 }
 
-/* Animazione per il dado */
-.shake { 
-    animation: shake 0.5s; 
+/* Animazione per il dado (SOSTITUITA CON diceShake) */
+#dice-result.shake {
+    animation: diceShake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    color: #ffc107; /* Colore giallo per l'animazione */
+    font-size: 4.5em !important; /* Aumenta leggermente durante il lancio */
 }
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-5px); }
-    40%, 80% { transform: translateX(5px); }
+
+@keyframes diceShake {
+    10%, 90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+    20%, 80% {
+        transform: translate3d(2px, 0, 0);
+    }
+    30%, 50%, 70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+    40%, 60% {
+        transform: translate3d(4px, 0, 0);
+    }
 }
+/* FINE NUOVA ANIMAZIONE DADO */
+
 
 /* 💥 NUOVO: Stile per il Messaggio di Stato Principale */
 #main-status-message {
@@ -174,8 +225,8 @@ main {
 /* ------------------------------------------------------------------ */
 
 .log-container {
-    max-height: 250px; 
-    overflow-y: auto; 
+    max-height: 250px;
+    overflow-y: auto;
     border: 1px solid #666;
     padding: 10px;
     background-color: #1a1a1a;
@@ -211,12 +262,14 @@ main {
 .log-dice { color: #87ceeb; }
 .log-card { color: #ff6347; }
 .log-effect { color: #90ee90; }
-.log-win { 
-    color: #ffd700; 
-    font-weight: bold; 
+.log-malus { color: #ff3333; } /* NUOVO: Colore rosso per malus */
+.log-win {
+    color: #ffd700;
+    font-weight: bold;
     border-top: 1px dashed gold; /* Linea per la vittoria */
     padding-top: 5px;
 }
+/* FINE STILI LOG AGGIORNATI */
 
 /* ------------------------------------------------------------------ */
 /* ♟️ TABELLONE E PEDINE */
@@ -230,18 +283,19 @@ main {
     border-radius: 12px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
     order: 1;
-    position: relative; 
+    position: relative;
 }
 
 #board {
     display: grid;
-    grid-template-columns: repeat(10, 1fr); 
-    grid-template-rows: repeat(10, 1fr); 
-    
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(10, 1fr);
+
     width: 100%;
-    aspect-ratio: 1 / 1; 
-    border: 5px solid #ff0000; 
+    aspect-ratio: 1 / 1;
+    border: 5px solid #ff0000;
     box-shadow: inset 0 0 10px #000;
+    position: relative; /* CRUCIALE: Riferimento per le pedine assolute */
 }
 
 /* Stile delle singole Caselle - Implementazione della forma tonda */
@@ -250,11 +304,11 @@ main {
     display: flex;
     justify-content: center;
     align-items: center;
-    position: relative; 
-    background-color: rgba(255, 255, 255, 0.05); 
+    position: relative;
+    background-color: rgba(255, 255, 255, 0.05);
     transition: background-color 0.3s;
-    overflow: hidden; 
-    
+    overflow: hidden;
+
     width: 100%;
     height: 100%;
 }
@@ -262,7 +316,7 @@ main {
 .cell::before {
     content: '';
     position: absolute;
-    width: 80%; 
+    width: 80%;
     height: 80%;
     border-radius: 50%;
     background-color: #333;
@@ -270,15 +324,15 @@ main {
     justify-content: center;
     align-items: center;
     z-index: 1;
-    transition: background-color 0.3s, box-shadow 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.1s; /* Aggiunto transform per evidenziazione */
 }
 
 .cell-number {
-    position: relative; 
+    position: relative;
     z-index: 2;
     font-size: 1em;
     font-weight: bold;
-    color: gold; 
+    color: gold;
     text-shadow: 1px 1px 2px #000; /* Leggibilità migliorata */
 }
 
@@ -287,16 +341,17 @@ main {
 .end-cell::before { background-color: #ccac00; }
 .card-draw::before { background-color: #990000; }
 
-/* Evidenziazione */
-.highlight::before { 
-    box-shadow: 0 0 15px 7px #00ffff; 
-    background-color: #0077ff; 
+/* Evidenziazione per lo spostamento (AGGIORNATO) */
+.cell.highlight::before {
+    box-shadow: 0 0 15px 7px rgba(255, 255, 0, 0.9); /* Effetto giallo */
+    background-color: #0077ff; /* Colore base di evidenziazione */
+    transform: scale(1.05); /* Lieve ingrandimento */
 }
 
 /* Stile della Pedina (Pawn) per Nome e Simbolo */
 .pawn {
-    position: absolute; 
-    width: 50px; 
+    position: absolute;
+    width: 50px;
     height: 50px;
     border-radius: 50%;
     color: white;
@@ -304,10 +359,13 @@ main {
     z-index: 10;
     cursor: pointer;
     border: 3px solid rgba(0, 0, 0, 0.7);
-    box-sizing: border-box; 
-    
+    box-sizing: border-box;
+
     /* Abilita l'animazione smooth del movimento/offset */
-    transition: transform 0.2s ease-out, box-shadow 0.3s; 
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s; /* Aumentato tempo per smooth move */
+
+    /* Centraggio iniziale, poi tradotto da JS per offset */
+    transform: translate(-50%, -50%);
 
     /* LAYOUT INTERNO: Simbolo sopra il nome */
     display: flex;
@@ -318,15 +376,15 @@ main {
 }
 
 .pawn-symbol {
-    font-size: 1.4em; 
+    font-size: 1.4em;
     line-height: 1;
     text-shadow: 0 0 5px #000;
 }
 
 .pawn-name {
     /* Nasconde il nome sulla pedina per default */
-    display: none; 
-    font-size: 0.55em; 
+    display: none;
+    font-size: 0.55em;
     line-height: 1;
     font-weight: normal;
     word-break: break-all;
@@ -334,23 +392,30 @@ main {
 }
 
 /* Evidenzia la pedina di turno */
-.active-pawn {
+.pawn.active-pawn { /* Aggiunto .pawn per specificità */
     box-shadow: 0 0 15px 5px yellow;
-    transform: scale(1.1);
+    transform: translate(-50%, -50%) scale(1.1); /* Mantiene il centramento + scala */
     border-color: yellow;
-    z-index: 100 !important;
+    z-index: 100;
 }
 
-/* 💥 MODIFICA APPLICATA QUI: Mostra il nome della pedina quando è attiva */
+/* Pedina con turno saltato (NUOVO STILE) */
+.pawn.pawn-skipped {
+    opacity: 0.5; /* Rende la pedina meno visibile */
+    box-shadow: none;
+    border-color: #444;
+}
+
+/* Mostra il nome della pedina quando è attiva */
 .active-pawn .pawn-name {
-    display: block; 
-    position: absolute; /* Rimuovi il nome dal flow interno */
-    bottom: -15px; /* Posiziona il nome sotto la pedina */
-    background-color: rgba(0, 0, 0, 0.7);
+    display: block;
+    position: absolute;
+    bottom: -15px;
+    background-color: rgba(0, 0, 0, 0.8);
     color: white;
     padding: 1px 5px;
     border-radius: 3px;
-    font-size: 0.7em; /* Aumentato leggermente per leggibilità */
+    font-size: 0.7em;
     z-index: 101;
     white-space: nowrap;
 }
@@ -398,10 +463,10 @@ main {
     color: #000;
 }
 
-.effect-text { 
-    font-size: 0.9em; 
-    color: #ccc; 
-    margin-top: 10px; 
+.effect-text {
+    font-size: 0.9em;
+    color: #ccc;
+    margin-top: 10px;
     font-style: italic;
 }
 
@@ -412,22 +477,22 @@ main {
 
 /* Dispositivi con larghezza massima di 800px (Tablet Verticale e Cellulari) */
 @media (max-width: 800px) {
-    
+
     /* 1. Layout Principale: Passa da affiancato a impilato */
     main {
         flex-direction: column;
         gap: 15px;
-        align-items: center; 
+        align-items: center;
     }
 
     /* Board e Container: Occupa quasi tutta la larghezza per massimizzare lo spazio */
     #board-container {
-        flex: none; 
-        width: 95vw; 
+        flex: none;
+        width: 95vw;
         max-width: 95vw;
-        order: 1; 
+        order: 1;
     }
-    
+
     /* Pannello di Stato: Occupa tutta la larghezza sotto la Board */
     #status-panel {
         flex: none;
@@ -439,12 +504,12 @@ main {
 
     /* 2. Intestazione: Impila titolo e controlli */
     header {
-        flex-direction: column; 
+        flex-direction: column;
         padding: 10px;
         max-width: 95vw;
         margin-bottom: 10px;
     }
-    
+
     h1 {
         font-size: 1.8rem;
         margin-bottom: 10px;
@@ -455,7 +520,7 @@ main {
         display: flex;
         justify-content: space-between;
     }
-    
+
     .dice-btn, #audio-toggle-btn {
         padding: 8px 15px;
         font-size: 0.9em;
@@ -466,29 +531,28 @@ main {
     .cell-number {
         font-size: 0.8em;
     }
-    
+
     /* Riduci dimensione visiva della pedina */
     .pawn {
         width: 40px; /* leggermente più piccole */
         height: 40px;
     }
     .pawn-symbol {
-        font-size: 1.1em; 
+        font-size: 1.1em;
     }
-    
-    /* **NOTA**: Il nome .pawn-name è già display:none per la maggior parte del tempo. 
-    Quando è attivo, appare il nome, ma non lo modifichiamo specificamente qui. */
+
+    /* Il .pawn-name è già display:none per la maggior parte del tempo. */
     .pawn-name {
         font-size: 0.6em; /* Adattato per la nuova posizione assoluta */
     }
-    
+
     /* 4. Modal: Riduci la dimensione del contenuto del modal */
     .modal-content {
         padding: 20px;
         max-width: 90%;
         font-size: 0.9em;
     }
-    
+
     .log-container {
         max-height: 200px; /* Riduci l'altezza del log su mobile */
     }
@@ -499,24 +563,24 @@ main {
     body {
         padding: 10px;
     }
-    
+
     h1 {
         font-size: 1.5rem;
     }
-    
+
     .header-controls {
-        flex-wrap: wrap; 
+        flex-wrap: wrap;
         justify-content: center;
         gap: 5px; /* Spazio tra i pulsanti/info */
     }
 
     #my-player-info {
-        order: -1; 
+        order: -1;
         width: 100%;
         text-align: center;
         margin-bottom: 10px;
     }
-    
+
     /* Forzo i pulsanti a riempire lo spazio */
     .dice-btn, #audio-toggle-btn {
         flex: 1;
@@ -524,12 +588,12 @@ main {
         font-size: 0.8em;
         margin: 0;
     }
-    
+
     /* Risultato del dado più piccolo */
     #dice-result {
         font-size: 3em !important;
     }
-    
+
     #board-container, #status-panel {
         width: 100%;
         max-width: 100%;

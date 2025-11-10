@@ -85,8 +85,8 @@
         const logContainer = document.getElementById('log-container');
         const myPlayerInfo = document.getElementById('my-player-info');
         const mainStatusMessage = document.getElementById('main-status-message');
-        const statusIcon = document.getElementById('status-icon'); // 💥 NUOVO
-        const statusText = document.getElementById('status-text'); // 💥 NUOVO
+        const statusIcon = document.getElementById('status-icon');
+        const statusText = document.getElementById('status-text');
 
         // Elementi UI esistenti
         const board = document.getElementById('board');
@@ -106,7 +106,7 @@
 
         let boardInitialized = false;
         let lastGameState = null;
-        let isWaitingForAnimation = false;
+        let isWaitingForAnimation = false; // 🔑 CHIAVE: Stato che blocca il gioco
         let myPlayerName = ''; 
 
         // Variabili audio
@@ -241,16 +241,16 @@
             const pawn = document.getElementById(`pawn-${playerId}`);
             const durationPerCell = 150; 
             let delay = 0;
-
-            // Trova l'indice della pedina sulla casella finale per l'offset
-            const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-            const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
             
-            // Imposta la transizione CSS per l'animazione
+            // Assicura che la transizione sia impostata prima di iniziare
             pawn.style.transition = `transform ${path.length * durationPerCell / 1000}s linear`; 
 
             return new Promise(resolve => {
                 if (path.length === 0) {
+                    // Trova l'indice della pedina sulla casella finale per l'offset
+                    const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
+                    const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
+                    
                     movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
                     // Rimuove la transizione dopo un breve ritardo per le mosse successive
                     setTimeout(() => pawn.style.transition = 'none', 10); 
@@ -287,6 +287,10 @@
                         if (index === path.length - 1) {
                             // Muovi alla posizione finale con l'offset corretto
                             setTimeout(() => {
+                                // Trova l'indice della pedina sulla casella finale per l'offset corretto
+                                const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
+                                const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
+                                
                                 // Rimuovi la transizione CSS prima dell'ultimo movimento per applicare l'offset finale
                                 pawn.style.transition = 'transform 0.3s ease-out'; // Una transizione più elegante per il posizionamento finale
                                 movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
@@ -334,7 +338,8 @@
         // 🔑 FIX: NUOVO LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO
         // ==========================================================
         socket.on('dice roll result', async (moveResult) => {
-            const currentPlayer = lastGameState.players.find(p => p.id === moveResult.playerId);
+            // Nota: Non usiamo il currentPlayer da lastGameState perché il server potrebbe averlo cambiato
+            // per la logica "salta turno". Affidiamoci a moveResult.playerId per la pedina da animare.
 
             // 1. Avvia lo stato di animazione e disabilita il dado (anche se era già disabilitato dal click)
             isWaitingForAnimation = true;
@@ -345,60 +350,59 @@
             diceResult.classList.add('shake');
             playSound('diceRoll');
             
-            // Logica visiva (Update pawns per aggiornare lo stato di movimento sulla pedina se necessario)
-            updatePawns(lastGameState.players);
-            
+            // 3. Anima il movimento della pedina
             setTimeout(() => {
                 diceResult.classList.remove('shake');
                 
-                // 3. Anima il movimento della pedina
                 animateMove(
                     moveResult.playerId, 
                     moveResult.path, 
                     moveResult.finalPosition,
                     lastGameState.players
                 ).then(() => {
-                    // 4. L'ANIMAZIONE È FINITA: Controlla se c'è un evento WIN o CARD
+                    // 4. L'ANIMAZIONE DI MOVIMENTO È FINITA:
+                    isWaitingForAnimation = false; // Rilascia l'animazione. updateStatus si occuperà di riabilitare il dado (se necessario).
                     
-                    if (moveResult.event) {
-                        if (moveResult.event.type === 'win') {
-                            showWin(currentPlayer); 
-                            isWaitingForAnimation = false;
-                        } else if (moveResult.event.type === 'card') {
-                            // Se è una carta, mostra il modale. L'animazione è finita.
-                            isWaitingForAnimation = false; 
-                            showCardModal(moveResult.event.data);
-                        }
-                    } else {
-                        // 5. NESSUN EVENTO SPECIALE: Invia il segnale al server per passare il turno
-                        socket.emit('movement finished', { playerId: moveResult.playerId });
-                        isWaitingForAnimation = false;
-                        // updateStatus verrà chiamato dal successivo 'game state update' dal server
-                    }
+                    // Il server gestirà il passaggio del turno, la carta o la vittoria.
+                    // Invia il messaggio al server per avviare il prossimo passo di gioco.
+                    socket.emit('movement finished', { playerId: moveResult.playerId });
                 });
             }, 500); // Ritardo per l'animazione del dado
+        });
+
+        // ==========================================================
+        // FIX: NUOVO LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
+        // ==========================================================
+        socket.on('card to draw', (eventData) => {
+            isWaitingForAnimation = false; // Permetti alla UI di aggiornare lo stato di attesa carta
+            showCardModal(eventData.card);
         });
 
         // ==========================================================
         // FIX: GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA
         // ==========================================================
         socket.on('card effect update', async (data) => {
-            isWaitingForAnimation = true;
+            isWaitingForAnimation = true; // Blocca tutto per l'animazione degli effetti a cascata
             
             if (data.playerUpdates && data.playerUpdates.length > 0) {
                 // Ricalcola lo stato dei giocatori prima di animare l'effetto carta
                 const playerUpdatesMap = new Map(data.playerUpdates.map(p => [p.id, p]));
+                
+                // Aggiorna lo stato dei giocatori prima di animare. **IMPORTANTE**
                 const playersAfterCard = lastGameState.players.map(p => {
                     const update = playerUpdatesMap.get(p.id);
-                    // Aggiorna solo la posizione per l'animazione dell'effetto (es: scendi o sali)
                     if (update) {
+                        // Aggiorna la posizione finale per l'animazione
                         return { ...p, position: update.newPos };
                     }
                     return p;
                 });
                 lastGameState.players = playersAfterCard; // Aggiorna lo stato globale
+                updatePawns(lastGameState.players); // Aggiorna le pedine sulla posizione iniziale dell'effetto (visiva)
+                
 
                 const movePromises = data.playerUpdates.map(update => {
+                    // Animiamo da oldPos (già in lastGameState) a newPos
                     return animateMove(update.id, update.path, update.newPos, playersAfterCard);
                 });
                 
@@ -409,7 +413,7 @@
             }
 
             if (data.win) {
-                const winner = lastGameState.players.find(p => p.id === data.win);
+                const winner = lastGameState.players.find(p => p.id === data.win.playerId);
                 showWin(winner);
                 isWaitingForAnimation = false;
                 return;
@@ -598,6 +602,7 @@
             resolveCardBtn.onclick = () => {
                 cardModal.classList.remove('show');
                 // Invia il segnale al server per applicare l'effetto e continuare il turno
+                // Questo triggererà l'evento 'card effect update' dal server
                 socket.emit('process card effect request', card);
                 // Il dado resterà disabilitato finché non arriva il 'card effect update' finale e il successivo 'game state update'
                 rollDiceBtn.disabled = true; 
@@ -640,7 +645,7 @@
             if (!rollDiceBtn.disabled && !isWaitingForAnimation) {
                 // Disabilita immediatamente per prevenire doppi click
                 rollDiceBtn.disabled = true; 
-                isWaitingForAnimation = true; 
+                isWaitingForAnimation = true; // Blocca la UI
                 socket.emit('roll dice request');
                 // L'abilitazione del dado avverrà solo dopo che il server ha ricevuto la conferma di fine movimento/carta
                 // e ha inviato un nuovo 'game state update'.
