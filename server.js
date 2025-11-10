@@ -750,14 +750,23 @@ io.on('connection', (socket) => {
 
              logEvent(`**${disconnectedPlayerName} ${disconnectedPlayerSymbol}** ha lasciato la contesa.`, 'general');
 
-             if (wasCurrent && gameState.players.length > 0) {
+             // ✅ MODIFICA CRITICA: Logic for safe turn index transition
+             if (gameState.players.length > 0) { 
+                 // 1. Correzione dell'indice se ora punta oltre la fine dell'array
                  if (gameState.currentTurnIndex >= gameState.players.length) {
                      gameState.currentTurnIndex = 0;
                  }
-                 nextTurnLogic(); 
-             } else if (gameState.players.length === 0) {
+                 
+                 // 2. Se il giocatore disconnesso era quello di turno, passa al prossimo turno valido
+                 if (wasCurrent) {
+                     nextTurnLogic(); 
+                 }
+                 // Nota: Se non era il giocatore di turno, l'indice è stato corretto al punto 1 (se necessario)
+                 // e attende il turno del nuovo giocatore attuale (che è valido).
+             } else {
                  gameState.game_over = true;
              }
+             // -------------------------------------------------------------
         }
         
         emitGameState();
