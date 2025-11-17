@@ -479,7 +479,7 @@
                     pawn = document.createElement('div');
                     pawn.id = `pawn-${player.id}`;
                     pawn.className = 'pawn';
-                    // Aggiunto l'id per il simbolo/nome per una gestione più flessibile degli stili
+                    // Modifica qui: Aggiunto un tag <span> per il nome e uno per il simbolo
                     pawn.innerHTML = `<span class="pawn-symbol" id="symbol-${player.id}">${player.symbol}</span><span class="pawn-name">${player.name}</span>`;
                     board.appendChild(pawn);
                 }
@@ -492,9 +492,11 @@
                 // 💡 Gestione stato 'Skip Turn'
                 if (player.skippedTurns > 0) {
                     pawn.classList.add('pawn-skipped');
+                    // Aggiorna solo il simbolo <span> con la X
                     document.getElementById(`symbol-${player.id}`).textContent = '🚫';
                 } else {
                     pawn.classList.remove('pawn-skipped');
+                    // Ripristina il simbolo originale
                     document.getElementById(`symbol-${player.id}`).textContent = player.symbol;
                 }
 

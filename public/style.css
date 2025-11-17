@@ -151,7 +151,8 @@ main {
 }
 
 #dice-result {
-    font-size: 4em !important;
+    /* !important Rimosso - l'ID è sufficientemente specifico */
+    font-size: 4em;
     display: block;
     text-align: center;
     margin: 10px 0;
@@ -166,20 +167,25 @@ main {
     backface-visibility: hidden;
     perspective: 1000px;
     color: #ffc107; /* Colore giallo per l'animazione */
-    font-size: 4.5em !important; /* Aumenta leggermente durante il lancio */
+    /* !important Rimosso - l'ID+classe è sufficientemente specifico */
+    font-size: 4.5em; /* Aumenta leggermente durante il lancio */ 
 }
 
 @keyframes diceShake {
     10%, 90% {
+        -webkit-transform: translate3d(-1px, 0, 0); /* Prefisso per compatibilità */
         transform: translate3d(-1px, 0, 0);
     }
     20%, 80% {
+        -webkit-transform: translate3d(2px, 0, 0); /* Prefisso per compatibilità */
         transform: translate3d(2px, 0, 0);
     }
     30%, 50%, 70% {
+        -webkit-transform: translate3d(-4px, 0, 0); /* Prefisso per compatibilità */
         transform: translate3d(-4px, 0, 0);
     }
     40%, 60% {
+        -webkit-transform: translate3d(4px, 0, 0); /* Prefisso per compatibilità */
         transform: translate3d(4px, 0, 0);
     }
 }
@@ -262,7 +268,8 @@ main {
 .log-dice { color: #87ceeb; }
 .log-card { color: #ff6347; }
 .log-effect { color: #90ee90; }
-.log-malus { color: #ff3333; } /* NUOVO: Colore rosso per malus */
+.log-malus { color: #ff3333; } /* Colore rosso per malus */
+.log-info { color: #ccc; } /* Aggiunto per messaggi neutri */
 .log-win {
     color: #ffd700;
     font-weight: bold;
@@ -362,10 +369,10 @@ main {
     box-sizing: border-box;
 
     /* Abilita l'animazione smooth del movimento/offset */
-    transition: transform 0.3s ease-in-out, box-shadow 0.3s; /* Aumentato tempo per smooth move */
+    transition: transform 0.4s ease-in-out, box-shadow 0.3s; /* Tempo leggermente aumentato per movimento più fluido */
 
-    /* Centraggio iniziale, poi tradotto da JS per offset */
-    transform: translate(-50%, -50%);
+    /* Centraggio iniziale, poi tradotto da JS per offset (MANTENUTO) */
+    transform: translate(-50%, -50%); 
 
     /* LAYOUT INTERNO: Simbolo sopra il nome */
     display: flex;
@@ -392,9 +399,10 @@ main {
 }
 
 /* Evidenzia la pedina di turno */
-.pawn.active-pawn { /* Aggiunto .pawn per specificità */
+.pawn.active-pawn { 
     box-shadow: 0 0 15px 5px yellow;
-    transform: translate(-50%, -50%) scale(1.1); /* Mantiene il centramento + scala */
+    /* Mantiene il centraggio originale e aggiunge la scala */
+    transform: translate(-50%, -50%) scale(1.1); 
     border-color: yellow;
     z-index: 100;
 }
@@ -579,11 +587,12 @@ main {
         width: 100%;
         text-align: center;
         margin-bottom: 10px;
+        font-size: 1em; /* Ottimizzato */
     }
 
     /* Forzo i pulsanti a riempire lo spazio */
     .dice-btn, #audio-toggle-btn {
-        flex: 1;
+        flex: 1 1 45%; /* Migliorata la distribuzione su due colonne */
         min-width: unset;
         font-size: 0.8em;
         margin: 0;
@@ -591,7 +600,7 @@ main {
 
     /* Risultato del dado più piccolo */
     #dice-result {
-        font-size: 3em !important;
+        font-size: 3em; /* !important rimosso */
     }
 
     #board-container, #status-panel {

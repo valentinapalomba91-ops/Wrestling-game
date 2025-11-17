@@ -254,7 +254,8 @@ function drawCard() {
         shuffleArray(gameState.cardDeck);
     }
     const card = gameState.cardDeck.shift();
-    gameState.cardDeck.push(card);
+    // Ricicla la carta in fondo al mazzo
+    gameState.cardDeck.push(card); 
     return card;
 }
 
@@ -291,9 +292,9 @@ function initializeGame() {
     gameState.cardDeck = [...CARDS];
     shuffleArray(gameState.cardDeck);
     
-    // 💡 Modifiche Aggiunte: reset completo dello stato per una nuova partita pulita
-    gameState.gameLog = []; // Azzeramento Cronologia
-    gameState.currentTurnIndex = 0; // Reset del turno iniziale
+    // ✅ CORREZIONE: reset completo dello stato per una nuova partita pulita
+    gameState.gameLog = []; 
+    gameState.currentTurnIndex = 0; 
     // ---------------------------------------------------------------------
     
     gameState.game_over = false;
@@ -306,19 +307,22 @@ function initializeGame() {
     });
     logEvent("La partita è iniziata. Tutti i giocatori sono a casella 1.", 'general');
 }
+
 function nextTurnLogic() {
     if (gameState.players.length === 0) return;
 
     let startIndex = gameState.currentTurnIndex;
     let nextIndex = (gameState.currentTurnIndex + 1) % gameState.players.length;
     
+    // Loop per saltare i giocatori che hanno turni saltati
     while (gameState.players[nextIndex].skippedTurns > 0) {
-        logEvent(`${gameState.players[nextIndex].name} ${gameState.players[nextIndex].symbol} salta il turno (Turni rimanenti: ${gameState.players[nextIndex].skippedTurns - 1}).`, 'malus');
+        logEvent(`💀 ${gameState.players[nextIndex].name} ${gameState.players[nextIndex].symbol} salta il turno (Turni rimanenti: ${gameState.players[nextIndex].skippedTurns - 1}).`, 'malus');
         
         gameState.players[nextIndex].skippedTurns--;
         nextIndex = (nextIndex + 1) % gameState.players.length;
         
         if (nextIndex === startIndex) {
+            // Caso: Tutti i giocatori devono saltare il turno
             break; 
         }
     }
@@ -327,14 +331,15 @@ function nextTurnLogic() {
     return gameState.players[gameState.currentTurnIndex];
 }
 
-// 💥 FUNZIONE MODIFICATA PER INVIARE IL PATH AL CLIENT
+// 💥 FUNZIONE AGGIORNATA PER RIMOZIONE PASSAGGIO TURNO PREMATURO
 function processPlayerMove(diceRoll, isCardMove = false) {
     const player = gameState.players[gameState.currentTurnIndex];
     const oldPosition = player.position;
     let newPosition = player.position + diceRoll;
 
     let event = null;
-    let isNewTurn = true;
+    // ✅ CORREZIONE: isNewTurn è ora SEMPRE true, a meno che non si peschi una carta.
+    let isNewTurn = true; 
     let path = [];
 
     if (newPosition >= TOTAL_CELLS) {
@@ -359,16 +364,18 @@ function processPlayerMove(diceRoll, isCardMove = false) {
         if (!isCardMove && CARD_DRAW_CELLS.includes(newPosition)) {
             let drawnCard;
             if (newPosition === 18) {
+                // Carta speciale 18 (Eddie Guerrero)
                 drawnCard = CARDS.find(c => c.name === "I lie, i cheat, I steal!");
             } else {
                 drawnCard = drawCard();
             }
 
             event = { type: 'card', data: drawnCard };
-            isNewTurn = false; // NON è un nuovo turno finché la carta non è risolta
-        } else {
-            nextTurnLogic(); // Passa al turno successivo solo se non c'è una carta
-        }
+            // ✅ CORREZIONE: NON è un nuovo turno finché la carta non è risolta
+            isNewTurn = false; 
+            
+        } 
+        // Nota: nextTurnLogic() NON deve essere chiamato qui. Sarà chiamato da 'movement finished'.
     }
     
     // Restituisce l'intera sequenza di caselle (path) per l'animazione client
@@ -378,7 +385,7 @@ function processPlayerMove(diceRoll, isCardMove = false) {
         path: path, // Array delle caselle intermedie + finale
         finalPosition: newPosition,
         event: event,
-        isNewTurn: isNewTurn
+        isNewTurn: isNewTurn // Indica al client se il server deve passare il turno DOPO l'animazione
     };
 }
 
@@ -409,12 +416,15 @@ function processCardEffect(card) {
             
             let existingUpdate = playerUpdates.find(p => p.id === player.id);
             if (existingUpdate) {
+                // Aggiorna un movimento già tracciato (utile per target_cell)
                 existingUpdate.newPos = newPos;
+                // ✅ CORREZIONE: Aggiunto il path anche qui.
                 existingUpdate.path = path; 
             } else {
                 playerUpdates.push({
                     id: player.id,
-                    path: path, // <- PATH AGGIUNTO QUI
+                    // ✅ CORREZIONE: Aggiunto il path per l'animazione di movimenti non-dado.
+                    path: path, 
                     newPos: newPos,
                     oldPos: oldPos 
                 });
@@ -478,7 +488,7 @@ function processCardEffect(card) {
         if (target) {
             const stepsToMove = currentPlayer.position - target.position;
             applyMovement(target, stepsToMove); 
-            logEvent(`${target.name} ${target.symbol} retrocede a casella ${currentPlayer.position} (Pipe Bomb!).`, 'effect');
+            logEvent(`↪️ ${target.name} ${target.symbol} retrocede a casella ${currentPlayer.position} (Pipe Bomb!).`, 'effect');
         }
     }
 
@@ -488,7 +498,7 @@ function processCardEffect(card) {
         if (target) {
             const stepsToMove = currentPlayer.position - target.position;
             applyMovement(target, stepsToMove); 
-            logEvent(`${target.name} ${target.symbol} avanza a casella ${currentPlayer.position} (Underdog!).`, 'effect');
+            logEvent(`⬆️ ${target.name} ${target.symbol} avanza a casella ${currentPlayer.position} (Underdog!).`, 'effect');
         }
     }
 
@@ -498,7 +508,7 @@ function processCardEffect(card) {
             if (p.id !== currentPlayer.id) { // Solo gli avversari
                 const otherWinner = applyMovement(p, card.move_all_others); 
                 if (otherWinner) win = otherWinner;
-                logEvent(`${p.name} retrocede di ${Math.abs(card.move_all_others)} casella.`, 'malus');
+                logEvent(`⬇️ ${p.name} retrocede di ${Math.abs(card.move_all_others)} casella.`, 'malus');
             }
         });
     }
@@ -509,19 +519,19 @@ function processCardEffect(card) {
         const target = findTargetPlayer('farthest_ahead', currentPlayer.id);
         if (target) {
             target.skippedTurns += 1;
-            logEvent(`Saltato turno per ${currentPlayer.name} e ${target.name}.`, 'malus'); 
+            logEvent(`🚨 Doppio salto turno per ${currentPlayer.name} e ${target.name}.`, 'malus'); 
         }
     }
     
     // Turni Saltati e Turni Extra
     if (card.skip_next_turn) { 
         currentPlayer.skippedTurns += 1;
-        logEvent(`${currentPlayer.name} salterà il prossimo turno.`, 'malus'); 
+        logEvent(`🛑 ${currentPlayer.name} salterà il prossimo turno.`, 'malus'); 
     }
     
     if (card.extra_turn) { 
         extraTurn = true;
-        logEvent(`${currentPlayer.name} ottiene un turno extra immediato!`, 'bonus');
+        logEvent(`➕ ${currentPlayer.name} ottiene un turno extra immediato!`, 'bonus');
     }
     
     if (card.skip_all_others) { 
@@ -530,6 +540,7 @@ function processCardEffect(card) {
                 p.skippedTurns += 1;
             }
         });
+        logEvent(`🛑 Tutti gli avversari salteranno il prossimo turno.`, 'malus'); 
     }
     
     // Log Effetto finale 
@@ -539,7 +550,7 @@ function processCardEffect(card) {
     }
 
 
-    // --- 4. Controllo Carta a Cascata e Passaggio Turno (FIX: Gestione Casella 18) ---
+    // --- 4. Controllo Carta a Cascata e Passaggio Turno ---
     
     // Controlla se il giocatore corrente è stato mosso e atterra su una casella carta.
     if (!win && !card.move_all && !card.move_all_to_start) 
@@ -548,11 +559,12 @@ function processCardEffect(card) {
         
         // Se c'è stato un movimento del giocatore di turno (causato dalla carta)
         if (playerMoved && CARD_DRAW_CELLS.includes(currentPlayer.position)) {
-            // Se la carta attuale non è 'I lie, i cheat, I steal!' (che è già un effetto speciale)
+            
+            // ✅ CORREZIONE: Evita la cascata se la carta era già la speciale 18.
             if (card.name !== "I lie, i cheat, I steal!") {
                 
                 let cascadedCardToDraw;
-                // 💥 CORREZIONE: Gestisce il caso speciale della casella 18 in cascata
+                // Gestisce il caso speciale della casella 18 in cascata
                 if (currentPlayer.position === 18) {
                     cascadedCardToDraw = CARDS.find(c => c.name === "I lie, i cheat, I steal!");
                 } else {
@@ -564,7 +576,8 @@ function processCardEffect(card) {
                     position: currentPlayer.position,
                     playerID: currentPlayer.id
                 };
-                extraTurn = false; // La cascata ha la precedenza sul turno extra
+                // ✅ CORREZIONE: La cascata ha la precedenza, ma preserviamo l'extra turn per dopo la carta cascata.
+                extraTurn = card.extra_turn || false; 
             }
         }
     }
@@ -622,12 +635,12 @@ function emitGameState() {
 
 /**
  * Funzione helper per inviare il risultato del dado per l'animazione.
- * Include lo stato attuale (posizione cambiata ma turno non ancora passato).
  */
 function emitDiceResult(moveResult) {
-    // 💥 MODIFICA: Invia un evento specifico per l'animazione del dado
+    // Invia un evento specifico per l'animazione del dado
     io.emit('dice roll result', { 
         moveResult: moveResult,
+        // Invia lo stato essenziale aggiornato (posizione cambiata ma turno NON ancora passato)
         ...getEssentialGameState() 
     });
 }
@@ -685,7 +698,7 @@ io.on('connection', (socket) => {
 
         const moveResult = processPlayerMove(diceRoll);
         
-        // 💥 Invia il risultato del movimento per l'animazione. Non passa il turno qui se c'è una carta.
+        // Invia il risultato del movimento per l'animazione
         emitDiceResult(moveResult); 
     });
 
@@ -707,17 +720,27 @@ io.on('connection', (socket) => {
         // Il client deve inviare 'card animation finished' dopo l'animazione.
     });
     
-    // 🎯 NUOVO LISTENER: Riceve conferma di fine movimento del dado
+    // ✅ CORREZIONE: Listener di conferma di fine movimento del dado
     socket.on('movement finished', (moveResult) => {
         
-        if (moveResult && moveResult.playerId === socket.id) {
-            // Caso 1: Vittoria o Turno Passato Normalmente
+        const currentPlayer = gameState.players[gameState.currentTurnIndex];
+        
+        // Verifica se l'evento è per il giocatore corretto
+        if (moveResult && currentPlayer && moveResult.playerId === currentPlayer.id) {
+            
+            // Caso 1: Vittoria
             if (moveResult.event && moveResult.event.type === 'win') {
                 emitGameState(); 
-            } else if (moveResult.isNewTurn) {
-                emitGameState(); // Lo stato è già aggiornato con il prossimo giocatore in nextTurnLogic
             } 
-            // Caso 2: Carta Pescata
+            // Caso 2: Movimento normale senza carta
+            else if (moveResult.isNewTurn) {
+                // Passa il turno (già fatto in processPlayerMove) e aggiorna lo stato visivo per tutti
+                // nextTurnLogic(); // Rimosso da processPlayerMove, quindi lo chiamiamo qui.
+                // ✅ CORREZIONE: La logica di passaggio turno viene chiamata qui, dopo che l'animazione è finita.
+                nextTurnLogic(); 
+                emitGameState(); 
+            } 
+            // Caso 3: Carta Pescata
             else if (moveResult.event && moveResult.event.type === 'card') {
                 // Invia un evento specifico per mostrare la carta (non aggiorna lo stato finale)
                 io.emit('card to draw', {
@@ -728,10 +751,29 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🎯 NUOVO LISTENER: Riceve conferma di fine animazione effetto carta
-    socket.on('card animation finished', () => {
-        // Dopo l'animazione degli effetti, emette lo stato per passare al prossimo turno o gestire extra turn/cascata.
-        emitGameState();
+    // ✅ CORREZIONE: Listener di conferma di fine animazione effetto carta
+    socket.on('card animation finished', (result) => {
+        
+        const currentPlayer = gameState.players[gameState.currentTurnIndex];
+        
+        // Verifica se l'evento è per il giocatore corretto
+        if (result && currentPlayer && result.cardApplied.playerID === currentPlayer.id) {
+
+            // Caso 1: Vittoria o Cascata
+            if (result.win) {
+                emitGameState(); 
+            } else if (result.cascadedCard) {
+                // Se c'è una cascata, il server invia un nuovo evento 'card to draw' immediatamente.
+                io.emit('card to draw', {
+                    card: result.cascadedCard.card,
+                    playerID: result.cascadedCard.playerID
+                });
+            } else {
+                // Se non c'è cascata o vittoria, si passa il turno (o si mantiene se c'era extraTurn).
+                // nextTurnLogic è già chiamato in processCardEffect se non c'era extraTurn.
+                emitGameState(); 
+            }
+        }
     });
 
 
@@ -749,7 +791,7 @@ io.on('connection', (socket) => {
              gameState.players.splice(playerIndex, 1);
              delete currentPlayers[socket.id];
 
-             logEvent(`**${disconnectedPlayerName} ${disconnectedPlayerSymbol}** ha lasciato la contesa.`, 'general');
+             logEvent(`⚠️ **${disconnectedPlayerName} ${disconnectedPlayerSymbol}** ha lasciato la contesa.`, 'general');
 
              if (gameState.players.length > 0) { 
                  // 1. Correzione dell'indice: se il giocatore rimosso era prima, scala l'indice.
@@ -763,7 +805,6 @@ io.on('connection', (socket) => {
                  }
                  
                  // 3. Forziamo il passaggio del turno se il giocatore disconnesso era quello attuale
-                 // Questo è CRITICO per sbloccare il gioco.
                  if (wasCurrent) {
                     nextTurnLogic(); 
                  }
@@ -771,7 +812,7 @@ io.on('connection', (socket) => {
              } else {
                  gameState.game_over = true;
              }
-             
+            
              // Aggiorniamo sempre lo stato dopo la disconnessione per sbloccare l'UI.
              emitGameState(); 
         }
