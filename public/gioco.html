@@ -329,7 +329,8 @@
                             setTimeout(() => {
                                 // Trova l'indice della pedina sulla casella finale per l'offset corretto
                                 const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-                                const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
+                                // ✅ FIX: Sostituito playersOnCell (non definita) con playersOnFinalCell
+                                const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId); 
                                 
                                 pawn.style.transition = 'transform 0.3s ease-out'; // Transizione per il posizionamento finale
                                 movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
