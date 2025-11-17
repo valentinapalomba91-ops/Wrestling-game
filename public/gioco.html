@@ -208,57 +208,66 @@
         }
 
         // --------------------------------------------------
-        // 🚀 ANIMAZIONI E MOVIMENTO
         // --------------------------------------------------
-        
-        /** Muove la pedina nel CSS alla posizione finale della casella, applicando l'offset. */
-        function movePawnToCell(pawn, cellNumber, playerIndexOnCell) {
-            const cell = document.getElementById(`cell-${cellNumber}`);
-            if (!cell) return;
+// 🚀 ANIMAZIONI E MOVIMENTO
+// --------------------------------------------------
+        
+/** Muove la pedina nel CSS alla posizione finale della casella, applicando l'offset. */
+function movePawnToCell(pawn, cellNumber, playerIndexOnCell) {
+    const cell = document.getElementById(`cell-${cellNumber}`);
+    if (!cell) return;
 
-            const cellRect = cell.getBoundingClientRect();
-            const boardRect = board.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    const boardRect = board.getBoundingClientRect();
+    
+    // Calcola la posizione centrale della casella rispetto al tabellone
+    let x = cellRect.left - boardRect.left + (cellRect.width / 2);
+    let y = cellRect.top - boardRect.top + (cellRect.height / 2);
+
+    // APPLICA OFFSET: usa l'indice del giocatore su quella cella
+    // Uso il modulo per gestire più di 5 giocatori sulla stessa cella, riciclando gli offset
+    const offsetIndex = (playerIndexOnCell !== undefined) ? (playerIndexOnCell % PAWN_OFFSETS.length) : 0;
+    const offset = PAWN_OFFSETS[offsetIndex];
+
+    // Applica l'offset in pixel
+    x += offset.x;
+    y += offset.y;
+
+    // Il transform muove prima al centro (x, y) e poi lo sposta indietro di metà dimensione pedina (-50%, -50%)
+    pawn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+}
+
+/** Esegue l'animazione di movimento su un percorso di caselle */
+function animateMove(playerId, path, finalPosition, allPlayers) {
+    // 💡 CORREZIONE: Usa il formato ID corretto 'pawn-' + playerId
+    const pawn = document.getElementById(`pawn-${playerId}`); 
+    
+    // 🛡️ SICUREZZA: Aggiungo un controllo per l'errore che avevi riscontrato
+    if (!pawn) {
+        console.error("ERRORE CRITICO: Pedina non trovata per l'ID:", playerId, "Animazione saltata.");
+        return Promise.resolve(); // Risolvi immediatamente la Promise per non bloccare il flusso
+    }
+
+    const durationPerCell = 150; 
+    let delay = 0;
+    
+    // Assicura che la transizione sia impostata prima di iniziare
+    pawn.style.transition = `transform ${path.length * durationPerCell / 1000}s linear`; 
+
+    return new Promise(resolve => {
+        if (path.length === 0) {
+            // Trova l'indice della pedina sulla casella finale per l'offset
+            const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
+            const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
             
-            // Calcola la posizione centrale della casella rispetto al tabellone
-            let x = cellRect.left - boardRect.left + (cellRect.width / 2);
-            let y = cellRect.top - boardRect.top + (cellRect.height / 2);
-
-            // APPLICA OFFSET: usa l'indice del giocatore su quella cella
-            // Uso il modulo per gestire più di 5 giocatori sulla stessa cella, riciclando gli offset
-            const offsetIndex = (playerIndexOnCell !== undefined) ? (playerIndexOnCell % PAWN_OFFSETS.length) : 0;
-            const offset = PAWN_OFFSETS[offsetIndex];
-
-            // Applica l'offset in pixel
-            x += offset.x;
-            y += offset.y;
-
-            // Il transform muove prima al centro (x, y) e poi lo sposta indietro di metà dimensione pedina (-50%, -50%)
-            pawn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+            movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
+            // Rimuove la transizione dopo un breve ritardo per le mosse successive
+            setTimeout(() => pawn.style.transition = 'none', 10); 
+            resolve();
+            return;
         }
 
-        /** Esegue l'animazione di movimento su un percorso di caselle */
-        function animateMove(playerId, path, finalPosition, allPlayers) {
-            const pawn = document.getElementById(`pawn-${playerId}`);
-            const durationPerCell = 150; 
-            let delay = 0;
-            
-            // Assicura che la transizione sia impostata prima di iniziare
-            pawn.style.transition = `transform ${path.length * durationPerCell / 1000}s linear`; 
-
-            return new Promise(resolve => {
-                if (path.length === 0) {
-                    // Trova l'indice della pedina sulla casella finale per l'offset
-                    const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-                    const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
-                    
-                    movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
-                    // Rimuove la transizione dopo un breve ritardo per le mosse successive
-                    setTimeout(() => pawn.style.transition = 'none', 10); 
-                    resolve();
-                    return;
-                }
-
-                path.forEach((cellNumber, index) => {
+        path.forEach((cellNumber, index) => {
                     delay += durationPerCell;
 
                     // 1. Evidenzia la cella
