@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"> 
     
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
     <link rel="stylesheet" href="style.css"> 
 
 </head>
@@ -160,14 +162,43 @@
             const isOddRow = row % 2 !== 0;
 
             if (isOddRow) {
-                return cellNumber;
+                // Le righe dispari vanno da sinistra a destra (es. 1, 2, ..., 10)
+                // L'ordine CSS deve essere calcolato dal fondo: 100, 99, ... 1
+                return TOTAL_CELLS - cellNumber + 1;
             } else {
+                // Le righe pari vanno da destra a sinistra (es. 20, 19, ..., 11)
+                // L'ordine CSS deve essere: (Riga sopra) + (indice inverso)
+                // Esempio: riga 2 (celle 11-20). 
+                // 11 deve essere dopo 10. Ordine 90.
+                // 20 deve essere prima di 21. Ordine 81.
                 const startOfRow = (row - 1) * size + 1;
                 const endOfRow = row * size;
-                return endOfRow + startOfRow - cellNumber;
+                // Calcolo: (Indice max - Indice riga sopra) + (Indice riga pari - cellNumber)
+                return TOTAL_CELLS - endOfRow + (cellNumber - startOfRow + 1);
             }
         }
-
+        
+        // 💡 NOTA: Il calcolo dell'ordine a serpente è molto complesso. Ho corretto la logica in base al funzionamento
+        // tipico del Flexbox 'order' per ottenere un serpente (1->10, 20->11, 21->30, ecc.)
+        function getSnakeOrder(cellNumber) {
+            const size = 10;
+            const row = Math.ceil(cellNumber / size);
+            const isEvenRow = row % 2 === 0;
+            
+            // Ordina dalla fine all'inizio (100 in alto a sinistra, 1 in basso a destra)
+            const rowStartValue = TOTAL_CELLS - (row * size) + 1;
+            
+            if (isEvenRow) {
+                // Es. riga 2 (11-20). 11 ha il valore più basso, 20 il più alto.
+                // (riga 1, ordine 91-100). riga 2, ordine 81-90.
+                return rowStartValue + (cellNumber - (row - 1) * size) - 1;
+            } else {
+                // Es. riga 1 (1-10). 1 ha il valore più alto, 10 il più basso.
+                // (riga 1, ordine 100-91).
+                return rowStartValue + (size - (cellNumber - (row - 1) * size));
+            }
+        }
+        
         /** Costruisce il tabellone di gioco (1-100) */
         function buildBoard(cardDrawCells) {
             if (boardInitialized) return;
@@ -199,7 +230,8 @@
                     cellNumber.textContent = 'START';
                 }
                 
-                const index = getCellIndex(i);
+                // ⭐ Uso la funzione per l'ordine a serpente corretto
+                const index = getSnakeOrder(i); 
                 cell.style.order = index; 
                 fragment.appendChild(cell);
             }
@@ -208,81 +240,80 @@
         }
 
         // --------------------------------------------------
+        // 🚀 ANIMAZIONI E MOVIMENTO
         // --------------------------------------------------
-// 🚀 ANIMAZIONI E MOVIMENTO
-// --------------------------------------------------
-        
-/** Muove la pedina nel CSS alla posizione finale della casella, applicando l'offset. */
-function movePawnToCell(pawn, cellNumber, playerIndexOnCell) {
-    const cell = document.getElementById(`cell-${cellNumber}`);
-    if (!cell) return;
+        
+        /** Muove la pedina nel CSS alla posizione finale della casella, applicando l'offset. */
+        function movePawnToCell(pawn, cellNumber, playerIndexOnCell) {
+            const cell = document.getElementById(`cell-${cellNumber}`);
+            if (!cell) return;
 
-    const cellRect = cell.getBoundingClientRect();
-    const boardRect = board.getBoundingClientRect();
-    
-    // Calcola la posizione centrale della casella rispetto al tabellone
-    let x = cellRect.left - boardRect.left + (cellRect.width / 2);
-    let y = cellRect.top - boardRect.top + (cellRect.height / 2);
-
-    // APPLICA OFFSET: usa l'indice del giocatore su quella cella
-    // Uso il modulo per gestire più di 5 giocatori sulla stessa cella, riciclando gli offset
-    const offsetIndex = (playerIndexOnCell !== undefined) ? (playerIndexOnCell % PAWN_OFFSETS.length) : 0;
-    const offset = PAWN_OFFSETS[offsetIndex];
-
-    // Applica l'offset in pixel
-    x += offset.x;
-    y += offset.y;
-
-    // Il transform muove prima al centro (x, y) e poi lo sposta indietro di metà dimensione pedina (-50%, -50%)
-    pawn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-}
-
-/** Esegue l'animazione di movimento su un percorso di caselle */
-function animateMove(playerId, path, finalPosition, allPlayers) {
-    // 💡 CORREZIONE: Usa il formato ID corretto 'pawn-' + playerId
-    const pawn = document.getElementById(`pawn-${playerId}`); 
-    
-    // 🛡️ SICUREZZA: Aggiungo un controllo per l'errore che avevi riscontrato
-    if (!pawn) {
-        console.error("ERRORE CRITICO: Pedina non trovata per l'ID:", playerId, "Animazione saltata.");
-        return Promise.resolve(); // Risolvi immediatamente la Promise per non bloccare il flusso
-    }
-
-    const durationPerCell = 150; 
-    let delay = 0;
-    
-    // Assicura che la transizione sia impostata prima di iniziare
-    pawn.style.transition = `transform ${path.length * durationPerCell / 1000}s linear`; 
-
-    return new Promise(resolve => {
-        if (path.length === 0) {
-            // Trova l'indice della pedina sulla casella finale per l'offset
-            const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-            const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
+            // Utilizza getBoundingClientRect() e board.getBoundingClientRect() per il calcolo
+            const cellRect = cell.getBoundingClientRect();
+            const boardRect = board.getBoundingClientRect();
             
-            movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
-            // Rimuove la transizione dopo un breve ritardo per le mosse successive
-            setTimeout(() => pawn.style.transition = 'none', 10); 
-            resolve();
-            return;
+            // Calcola la posizione centrale della casella rispetto al tabellone
+            let x = cellRect.left - boardRect.left + (cellRect.width / 2);
+            let y = cellRect.top - boardRect.top + (cellRect.height / 2);
+
+            // APPLICA OFFSET
+            const offsetIndex = (playerIndexOnCell !== undefined) ? (playerIndexOnCell % PAWN_OFFSETS.length) : 0;
+            const offset = PAWN_OFFSETS[offsetIndex];
+
+            // Applica l'offset in pixel
+            x += offset.x;
+            y += offset.y;
+
+            // Sposta la pedina al centro della casella e applica l'offset
+            pawn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
         }
 
-        path.forEach((cellNumber, index) => {
+        /** Esegue l'animazione di movimento su un percorso di caselle */
+        function animateMove(playerId, path, finalPosition, allPlayers) {
+            // ✅ CRITICO: Usa il formato ID corretto 'pawn-' + playerId
+            const pawn = document.getElementById(`pawn-${playerId}`); 
+            
+            // 🛡️ SICUREZZA: Controllo per l'errore undefined (dovrebbe essere risolto)
+            if (!pawn) {
+                console.error("ERRORE CRITICO: Pedina non trovata per l'ID:", playerId, "Animazione saltata.");
+                return Promise.resolve(); // Risolvi immediatamente
+            }
+
+            const durationPerCell = 150; 
+            let delay = 0;
+            
+            pawn.style.transition = `transform ${path.length * durationPerCell / 1000}s linear`; 
+
+            return new Promise(resolve => {
+                if (path.length === 0) {
+                    // Movimento istantaneo o nullo
+                    const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
+                    const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
+                    
+                    movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
+                    // Rimuove la transizione dopo un breve ritardo per le mosse successive
+                    setTimeout(() => pawn.style.transition = 'none', 10); 
+                    resolve();
+                    return;
+                }
+
+                path.forEach((cellNumber, index) => {
                     delay += durationPerCell;
 
-                    // 1. Evidenzia la cella
+                    // 1. Evidenzia la cella e suono
                     setTimeout(() => {
                         const cell = document.getElementById(`cell-${cellNumber}`);
                         if (cell) {
                             cell.classList.add('highlight');
-                            playSound('move');
+                            // Suono solo per l'inizio del movimento (opzionale: su ogni cella)
+                            if (index === 0) playSound('move'); 
                         }
-                    }, delay - 50);
+                    }, delay - 50); // Piccola anticipazione per il suono/highlight
 
                     // 2. Muovi la pedina
                     setTimeout(() => {
-                        // Per i passi intermedi, usiamo l'offset 0 (centro)
-                        movePawnToCell(pawn, cellNumber, 0);
+                        // Per i passi intermedi, usiamo l'offset 0 (centro) per chiarezza
+                        movePawnToCell(pawn, cellNumber, 0); 
                         
                         // Rimuovi l'evidenziazione dalla cella precedente
                         if (index > 0) {
@@ -300,8 +331,7 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
                                 const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
                                 const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
                                 
-                                // Rimuovi la transizione CSS prima dell'ultimo movimento per applicare l'offset finale
-                                pawn.style.transition = 'transform 0.3s ease-out'; // Una transizione più elegante per il posizionamento finale
+                                pawn.style.transition = 'transform 0.3s ease-out'; // Transizione per il posizionamento finale
                                 movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
 
                                 setTimeout(() => {
@@ -339,7 +369,6 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
             updateLog(state.gameLog);
             
             // 4. Aggiorna lo stato dei giocatori e del turno
-            // (La logica del dado disabilitato/abilitato è qui, in base al turno e allo stato di animazione)
             updateStatus(state); 
         });
 
@@ -347,10 +376,8 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
         // 🔑 FIX: NUOVO LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO
         // ==========================================================
         socket.on('dice roll result', async (moveResult) => {
-            // Nota: Non usiamo il currentPlayer da lastGameState perché il server potrebbe averlo cambiato
-            // per la logica "salta turno". Affidiamoci a moveResult.playerId per la pedina da animare.
 
-            // 1. Avvia lo stato di animazione e disabilita il dado (anche se era già disabilitato dal click)
+            // 1. Avvia lo stato di animazione e disabilita il dado
             isWaitingForAnimation = true;
             rollDiceBtn.disabled = true;
             
@@ -363,18 +390,18 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
             setTimeout(() => {
                 diceResult.classList.remove('shake');
                 
+                // Uso lo stato dei giocatori prima dell'aggiornamento per l'animazione
                 animateMove(
                     moveResult.playerId, 
                     moveResult.path, 
                     moveResult.finalPosition,
-                    lastGameState.players
+                    lastGameState.players 
                 ).then(() => {
                     // 4. L'ANIMAZIONE DI MOVIMENTO È FINITA:
-                    isWaitingForAnimation = false; // Rilascia l'animazione. updateStatus si occuperà di riabilitare il dado (se necessario).
+                    isWaitingForAnimation = false; 
                     
-                    // Il server gestirà il passaggio del turno, la carta o la vittoria.
                     // Invia il messaggio al server per avviare il prossimo passo di gioco.
-                    socket.emit('movement finished', { playerId: moveResult.playerId });
+                    socket.emit('movement finished', moveResult); // Passa tutto il moveResult
                 });
             }, 500); // Ritardo per l'animazione del dado
         });
@@ -383,7 +410,7 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
         // FIX: NUOVO LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
         // ==========================================================
         socket.on('card to draw', (eventData) => {
-            isWaitingForAnimation = false; // Permetti alla UI di aggiornare lo stato di attesa carta
+            isWaitingForAnimation = false; 
             showCardModal(eventData.card);
         });
 
@@ -394,35 +421,34 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
             isWaitingForAnimation = true; // Blocca tutto per l'animazione degli effetti a cascata
             
             if (data.playerUpdates && data.playerUpdates.length > 0) {
-                // Ricalcola lo stato dei giocatori prima di animare l'effetto carta
+                
+                // 1. Aggiorna le posizioni dei giocatori nello stato locale (per gli offset finali)
                 const playerUpdatesMap = new Map(data.playerUpdates.map(p => [p.id, p]));
                 
-                // Aggiorna lo stato dei giocatori prima di animare. **IMPORTANTE**
                 const playersAfterCard = lastGameState.players.map(p => {
                     const update = playerUpdatesMap.get(p.id);
                     if (update) {
-                        // Aggiorna la posizione finale per l'animazione
-                        return { ...p, position: update.newPos };
+                         // Solo la posizione finale viene aggiornata per l'animazione
+                        return { ...p, position: update.newPos }; 
                     }
                     return p;
                 });
-                lastGameState.players = playersAfterCard; // Aggiorna lo stato globale
-                updatePawns(lastGameState.players); // Aggiorna le pedine sulla posizione iniziale dell'effetto (visiva)
+                lastGameState.players = playersAfterCard; 
                 
-
+                // 2. Inizia le animazioni per tutti i giocatori mossi dall'effetto carta
                 const movePromises = data.playerUpdates.map(update => {
-                    // Animiamo da oldPos (già in lastGameState) a newPos
+                    // Animiamo da oldPos a newPos
                     return animateMove(update.id, update.path, update.newPos, playersAfterCard);
                 });
                 
                 await Promise.all(movePromises);
                 
-                // Ricalcola gli offset finali per la posizione di arrivo
+                // 3. Ricalcola gli offset finali per la posizione di arrivo
                 updatePawns(lastGameState.players);
             }
 
             if (data.win) {
-                const winner = lastGameState.players.find(p => p.id === data.win.playerId);
+                const winner = lastGameState.players.find(p => p.id === data.win); // 'data.win' è l'ID
                 showWin(winner);
                 isWaitingForAnimation = false;
                 return;
@@ -431,82 +457,73 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
             if (data.cascadedCard) {
                 // Se c'è una carta a cascata, mostra immediatamente
                 isWaitingForAnimation = false;
+                // La cascata non passa il turno, ma riattiva la modal
                 showCardModal(data.cascadedCard.card);
                 return;
             }
             
-            // L'animazione è finita, avvisa il server per far passare il turno
-            socket.emit('card animation finished');
+            // 4. L'animazione è finita, avvisa il server per far passare il turno
+            socket.emit('card animation finished', data); // Passa tutti i dati al server per la logica finale
             isWaitingForAnimation = false;
-            // updateStatus verrà chiamato dal prossimo 'game state update'
         });
 
         // --------------------------------------------------
-        // 🔨 FUNZIONI DI SUPPORTO UI E LOG (POCHE MODIFICHE)
+        // 🔨 FUNZIONI DI SUPPORTO UI E LOG 
         // --------------------------------------------------
         
         /** AGGIORNAMENTO COMPLETO DELLA CRONOLOGIA DAL SERVER */
         function updateLog(gameLog) {
-            // Pulisce il contenitore precedente
             messageBox.innerHTML = ''; 
             
-            // Itera sull'array gameLog ricevuto e aggiunge ogni entry
             gameLog.forEach(entry => {
                 const logEntry = document.createElement('div');
-                // Usa la proprietà 'type' per applicare stili (es. log-dice, log-win)
                 logEntry.className = `log-entry log-${entry.type}`; 
                 
                 // Sostituisce il grassetto Markdown (**) con il tag HTML <strong>
                 let messageHTML = entry.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 
-                // Formato: [HH:MM:SS] Messaggio
                 logEntry.innerHTML = `[${entry.timestamp}] ${messageHTML}`; 
                 
-                // Prepend per mostrare i messaggi più recenti in cima
                 messageBox.prepend(logEntry);
             });
             
-            // Mantiene il log scrollato in alto (per vedere le ultime azioni)
             logContainer.scrollTop = 0;
         }
 
         function updatePawns(players) {
-            // Raggruppa le pedine per casella per calcolare l'offset
             const positions = {};
             players.forEach(p => {
                 positions[p.position] = positions[p.position] || [];
                 positions[p.position].push(p);
             });
 
-            // 💡 Miglioramento: Mostra lo stato di tutti i giocatori in una lista (separata dal pannello di stato principale)
             let statusListHtml = ''; 
 
             players.forEach(player => {
-                let pawn = document.getElementById(`pawn-${player.id}`);
+                // ✅ CRITICO: Usa 'pawn-' come ID
+                let pawn = document.getElementById(`pawn-${player.id}`); 
                 
                 if (!pawn) {
                     pawn = document.createElement('div');
                     pawn.id = `pawn-${player.id}`;
                     pawn.className = 'pawn';
-                    // Modifica qui: Aggiunto un tag <span> per il nome e uno per il simbolo
+                    // Modifica: Aggiunto un tag <span> per il simbolo
                     pawn.innerHTML = `<span class="pawn-symbol" id="symbol-${player.id}">${player.symbol}</span><span class="pawn-name">${player.name}</span>`;
                     board.appendChild(pawn);
                 }
                 
-                // Aggiorna il colore e la classe di turno
-                pawn.style.backgroundColor = player.color;
+                // Il server non manda 'color', quindi usiamo il simbolo come identificatore visivo
                 pawn.style.zIndex = 10 + player.position; 
                 pawn.classList.remove('active-pawn');
                 
                 // 💡 Gestione stato 'Skip Turn'
+                const symbolSpan = document.getElementById(`symbol-${player.id}`);
                 if (player.skippedTurns > 0) {
                     pawn.classList.add('pawn-skipped');
-                    // Aggiorna solo il simbolo <span> con la X
-                    document.getElementById(`symbol-${player.id}`).textContent = '🚫';
+                    if(symbolSpan) symbolSpan.textContent = '🚫';
                 } else {
                     pawn.classList.remove('pawn-skipped');
-                    // Ripristina il simbolo originale
-                    document.getElementById(`symbol-${player.id}`).textContent = player.symbol;
+                    if(symbolSpan) symbolSpan.textContent = player.symbol;
                 }
 
                 if (lastGameState && player.id === lastGameState.currentPlayerID) {
@@ -523,13 +540,13 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
                 
                 // Popola l'HTML per la lista di stato
                 statusListHtml += `<div class="player-entry ${player.id === lastGameState.currentPlayerID ? 'active-player' : ''}">
-                    <span style="color: ${player.color}; font-weight: bold;">${player.name} ${player.symbol}</span> 
+                    <span style="font-weight: bold;">${player.name} ${player.symbol}</span> 
                     - Pos: ${player.position}
                     ${player.skippedTurns > 0 ? ` 🚫 Salta ${player.skippedTurns}` : ''}
                 </div>`;
             });
             
-            playerStatus.innerHTML = statusListHtml; // Aggiorna la lista di stato
+            playerStatus.innerHTML = statusListHtml; 
         }
 
         /** Aggiorna il pannello di stato principale e lo stato del pulsante dado. */
@@ -540,7 +557,7 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
 
             // AGGIORNA LE INFORMAZIONI DEL MIO GIOCATORE
             if (myPlayer) {
-                myPlayerInfo.innerHTML = `Sei: <span style="color: ${myPlayer.color}; font-weight: bold;">${myPlayer.name} ${myPlayer.symbol}</span>`;
+                myPlayerInfo.innerHTML = `Sei: <span style="font-weight: bold;">${myPlayer.name} ${myPlayer.symbol}</span>`;
             }
 
             // Inizializza icona e classe
@@ -561,7 +578,7 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
             if (currentPlayer) {
                 const isMyTurn = currentPlayer.id === socket.id;
                 
-                // Disabilita il dado se: non è il mio turno O è in corso un'animazione O sta aspettando una carta
+                // Disabilita il dado se: non è il mio turno O è in corso un'animazione O sta aspettando una carta O salta il turno
                 const shouldDisableRoll = !isMyTurn || isWaitingForAnimation || isWaitingForCard || currentPlayer.skippedTurns > 0;
                 rollDiceBtn.disabled = shouldDisableRoll;
 
@@ -600,22 +617,19 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
         function showCardModal(card) {
             playSound('cardDraw');
             cardName.textContent = card.name;
-            cardText.textContent = card.textContent;
+            cardText.textContent = card.text; // La proprietà è 'text'
             cardEffectDesc.textContent = card.effect_desc;
             
             // Imposta il colore del titolo in base al tipo di carta
             cardName.style.color = card.type === 'malus' ? '#ff3333' : (card.type === 'bonus' ? '#00ff80' : 'gold');
             
             cardModal.classList.add('show');
-            // Nota: rollDiceBtn.disabled è gestito da updateStatus, che è chiamato ora
             updateStatus(lastGameState); 
             
             resolveCardBtn.onclick = () => {
                 cardModal.classList.remove('show');
-                // Invia il segnale al server per applicare l'effetto e continuare il turno
-                // Questo triggererà l'evento 'card effect update' dal server
-                socket.emit('process card effect request', card);
-                // Il dado resterà disabilitato finché non arriva il 'card effect update' finale e il successivo 'game state update'
+                // ✅ CORREZIONE: Usa l'evento atteso dal server per l'applicazione della carta
+                socket.emit('card effect request', card); 
                 rollDiceBtn.disabled = true; 
             };
         }
@@ -634,11 +648,11 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
         // Gestione del login
         joinGameBtn.addEventListener('click', () => {
             const nickname = playerNicknameInput.value.trim();
-            if (nickname.length >= 3 && nickname.length <= 15) { // Controllo lunghezza aggiornato
+            if (nickname.length >= 3 && nickname.length <= 15) { 
                 myPlayerName = nickname;
                 nameInputModal.classList.remove('show');
-                // Invia il nome al server per essere aggiunto alla partita
-                socket.emit('join game', nickname);
+                // ✅ CORREZIONE: Usa l'evento atteso dal server
+                socket.emit('set player name', nickname); 
             } else {
                 alert("Inserisci un nickname da 3 a 15 caratteri!");
             }
@@ -652,25 +666,21 @@ function animateMove(playerId, path, finalPosition, allPlayers) {
         });
 
         rollDiceBtn.addEventListener('click', () => {
-            // Aggiungo il controllo isWaitingForAnimation qui per una doppia sicurezza
             if (!rollDiceBtn.disabled && !isWaitingForAnimation) {
-                // Disabilita immediatamente per prevenire doppi click
                 rollDiceBtn.disabled = true; 
-                isWaitingForAnimation = true; // Blocca la UI
+                isWaitingForAnimation = true; 
                 socket.emit('roll dice request');
-                // L'abilitazione del dado avverrà solo dopo che il server ha ricevuto la conferma di fine movimento/carta
-                // e ha inviato un nuovo 'game state update'.
             }
         });
 
         // Inizializza il tabellone quando lo stato iniziale arriva (dopo il login)
         socket.on('connect', () => {
+            // Se il nome è già stato impostato (riconnessione), invialo di nuovo
             if (myPlayerName) {
                 nameInputModal.classList.remove('show');
-                socket.emit('join game', myPlayerName); 
+                socket.emit('set player name', myPlayerName); 
             } else {
                 nameInputModal.classList.add('show');
-                // Pulisci il campo se l'utente non aveva inserito nulla al primo tentativo
                 playerNicknameInput.value = ''; 
                 playerNicknameInput.focus();
             }
