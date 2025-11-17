@@ -682,7 +682,7 @@ function getEssentialGameState() {
             name: p.name 
         })),
         TOTAL_CELLS: TOTAL_CELLS,
-        currentPlayerID: gameState.players.length > 0 ? gameState.players[gameState.currentTurnIndex].id : null,
+        currentPlayerID: gameState.players[gameState.currentTurnIndex] ? gameState.players[gameState.currentTurnIndex].id : null,
         cardDrawCells: CARD_DRAW_CELLS,
         gameLog: gameState.gameLog,
         game_over: gameState.game_over 
@@ -722,13 +722,8 @@ io.on('connection', (socket) => {
     
     logEvent(`Un giocatore ${newPlayer.symbol} si è unito. In attesa del nome...`, 'general');
 
-    // CORREZIONE: Inizializza il gioco se è il primo giocatore.
     if (gameState.players.length === 1) {
         initializeGame();
-    } else {
-        // Se il gioco è già in corso, riassegna i simboli e le posizioni iniziali al nuovo giocatore
-        newPlayer.symbol = PLAYER_SYMBOLS[(gameState.players.length - 1) % PLAYER_SYMBOLS.length];
-        newPlayer.position = 1; 
     }
 
     emitGameState();
@@ -752,7 +747,7 @@ io.on('connection', (socket) => {
     socket.on('roll dice request', () => {
         const currentPlayer = gameState.players[gameState.currentTurnIndex]; 
         
-        if (gameState.game_over || gameState.players.length === 0 || !currentPlayer || currentPlayer.id !== socket.id) {
+        if (gameState.game_over || gameState.players.length === 0 || currentPlayer.id !== socket.id) {
             return;
         }
 
@@ -770,8 +765,7 @@ io.on('connection', (socket) => {
     socket.on('card effect request', (card) => {
         const currentPlayer = gameState.players[gameState.currentTurnIndex]; 
         
-        // CORREZIONE: Verifica che la richiesta provenga dal giocatore di turno.
-        if (gameState.game_over || gameState.players.length === 0 || !currentPlayer || currentPlayer.id !== socket.id) {
+        if (gameState.game_over || gameState.players.length === 0 || currentPlayer.id !== socket.id) {
             return;
         }
         
@@ -800,7 +794,9 @@ io.on('connection', (socket) => {
             } 
             // Caso 2: Movimento normale senza carta
             else if (moveResult.isNewTurn) {
-                // Passa il turno e aggiorna lo stato visivo per tutti
+                // Passa il turno (già fatto in processPlayerMove) e aggiorna lo stato visivo per tutti
+                // nextTurnLogic(); // Rimosso da processPlayerMove, quindi lo chiamiamo qui.
+                // ✅ CORREZIONE: La logica di passaggio turno viene chiamata qui, dopo che l'animazione è finita.
                 nextTurnLogic(); 
                 emitGameState(); 
             } 
@@ -823,27 +819,18 @@ io.on('connection', (socket) => {
         // Verifica se l'evento è per il giocatore corretto
         if (result && currentPlayer && result.cardApplied.playerID === currentPlayer.id) {
 
-            // Caso 1: Vittoria
+            // Caso 1: Vittoria o Cascata
             if (result.win) {
                 emitGameState(); 
-            } 
-            // Caso 2: Cascata di carte
-            else if (result.cascadedCard) {
+            } else if (result.cascadedCard) {
                 // Se c'è una cascata, il server invia un nuovo evento 'card to draw' immediatamente.
                 io.emit('card to draw', {
                     card: result.cascadedCard.card,
                     playerID: result.cascadedCard.playerID
                 });
-                // L'extraTurn viene gestito dopo la cascata successiva
-            } 
-            // Caso 3: Fine effetti (Passaggio Turno o Extra Turn)
-            else {
-                // Se c'era un extraTurn, manteniamo il turno e aggiorniamo lo stato
-                if (result.extraTurn) {
-                    logEvent(`➕ ${currentPlayer.name} ottiene un turno extra immediato!`, 'bonus');
-                } else {
-                    // Altrimenti, passiamo al giocatore successivo (nextTurnLogic è già stato chiamato in processCardEffect)
-                }
+            } else {
+                // Se non c'è cascata o vittoria, si passa il turno (o si mantiene se c'era extraTurn).
+                // nextTurnLogic è già chiamato in processCardEffect se non c'era extraTurn.
                 emitGameState(); 
             }
         }
@@ -858,9 +845,9 @@ io.on('connection', (socket) => {
              const disconnectedPlayerName = disconnectedPlayer.name; 
              const disconnectedPlayerSymbol = disconnectedPlayer.symbol;
              console.log(`[SERVER] Giocatore disconnesso: ${socket.id} (${disconnectedPlayerName})`);
-             
+            
              const wasCurrent = (playerIndex === gameState.currentTurnIndex);
-             
+            
              gameState.players.splice(playerIndex, 1);
              delete currentPlayers[socket.id];
 
@@ -879,15 +866,13 @@ io.on('connection', (socket) => {
                  
                  // 3. Forziamo il passaggio del turno se il giocatore disconnesso era quello attuale
                  if (wasCurrent) {
-                    // Chiamiamo nextTurnLogic per saltare eventuali turni saltati rimanenti del nuovo giocatore di turno
                     nextTurnLogic(); 
                  }
                  
              } else {
-                 // Nessun giocatore rimasto
                  gameState.game_over = true;
              }
-             
+            
              // Aggiorniamo sempre lo stato dopo la disconnessione per sbloccare l'UI.
              emitGameState(); 
         }
@@ -896,16 +881,21 @@ io.on('connection', (socket) => {
 
 
 // ==========================================================
-// 🌐 CONFIGURAZIONE SERVER
+// 🌐 CONFIGURAZIONE EXPRESS (Server Web)
 // ==========================================================
-// Serve i file statici dalla cartella 'public'
+
+// Configurazione per file statici
 app.use(express.static(path.join(__dirname, 'public'))); 
 
-// Rotta base che serve la pagina HTML principale
+// Routing esplicito per la homepage
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'gioco.html')); 
 });
 
+// Avvia il server
 server.listen(PORT, () => {
-    console.log(`Server WWE Snakes & Ladders in esecuzione sulla porta ${PORT}`);
+    console.log(`\n-------------------------------------------------`);
+    console.log(`🚀 Server Node.js avviato sulla porta ${PORT}`);
+    console.log(`🌐 Apri: http://localhost:${PORT}`);
+    console.log(`-------------------------------------------------\n`);
 });
