@@ -394,6 +394,7 @@
         </div>
     </div>
 
+    <!-- 🚨 FIX CRITICO: Inclusione della libreria Socket.IO -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
         // ==========================================================
@@ -434,12 +435,13 @@
         let lastGameState = null;
         let isWaitingForAnimation = false; 
         let myPlayerName = ''; 
-        let myPlayerId = null; // 🚨 FIX: ID del giocatore locale
+        let myPlayerId = null; // 🚨 ID del giocatore locale
 
         // Variabili audio
         let audioEnabled = true;
         const sounds = {
-            diceRoll: new Audio('dado.mp3'),
+            // Nota: per funzionare, i file audio devono essere presenti nella cartella 'public/'
+            diceRoll: new Audio('dado.mp3'), 
             cardDraw: new Audio('card.wav'),
             move: new Audio('pedina.wav'),
             win: new Audio('victory.mp3')
@@ -615,7 +617,7 @@
                             setTimeout(() => {
                                 // Trova l'indice della pedina sulla casella finale per l'offset corretto
                                 const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-                                // ✅ FIX: Corretto il typo da playersOnCell a playersOnFinalCell
+                                // ✅ FIX: Corretto il bug di logica per l'offset
                                 const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId); 
                                 
                                 pawn.style.transition = 'transform 0.3s ease-out'; 
@@ -640,10 +642,8 @@
         // 🔄 GESTIONE AGGIORNAMENTI SOCKET.IO
         // --------------------------------------------------
 
-        // 🚨 FIX: Il server invia l'ID del giocatore quando si connette.
         socket.on('connect', () => {
              // 1. Invia l'ID quando connesso (server lo invia al socket)
-             // Non è necessario un listener specifico, l'ID è socket.id
              myPlayerId = socket.id; 
              
              // 2. Logica di login
@@ -681,7 +681,7 @@
         });
 
         // ==========================================================
-        // 🔑 FIX: LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO INIZIALE
+        // 🔑 LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO INIZIALE
         // ==========================================================
         socket.on('dice roll result', async (moveResult) => {
 
@@ -713,7 +713,7 @@
         });
 
         // ==========================================================
-        // FIX: LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
+        // LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
         // ==========================================================
         socket.on('card to draw', (eventData) => {
             isWaitingForAnimation = false; 
@@ -749,7 +749,7 @@
         });
 
         // ==========================================================
-        // FIX: GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA (CASCATA)
+        // GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA (CASCATA)
         // ==========================================================
         socket.on('card effect update', async (data) => {
             isWaitingForAnimation = true; 
@@ -951,7 +951,7 @@
                 nameInputModal.classList.remove('show');
                 socket.emit('set player name', nickname); 
             } else {
-                // Sostituito alert() con log o UI temporanea
+                // Sostituito alert() con console log o UI temporanea
                 console.error("Inserisci un nickname da 3 a 15 caratteri!");
             }
         });
