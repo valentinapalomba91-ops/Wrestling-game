@@ -10,8 +10,324 @@
     
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
-    <link rel="stylesheet" href="style.css"> 
+    <!-- Lo stile deve essere fornito separatamente o qui, assumo sia su /style.css -->
+    <style>
+        :root {
+            --cell-size: 8vh;
+            --board-gap: 2px;
+            --pawn-size: 30px;
+        }
 
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: #343a40;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #my-player-info {
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        main {
+            display: flex;
+            flex-grow: 1;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        #status-panel {
+            flex-basis: 300px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #board-container {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative; 
+        }
+
+        #board {
+            display: flex;
+            flex-wrap: wrap;
+            width: calc(10 * var(--cell-size) + 9 * var(--board-gap)); 
+            height: calc(10 * var(--cell-size) + 9 * var(--board-gap));
+            background-color: #eee;
+            border: 5px solid #343a40;
+            position: relative;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            background-color: #fff;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            transition: background-color 0.1s;
+        }
+
+        /* -------------------------------------- */
+        /* LAYOUT A SERPENTE (Flexbox Order) */
+        /* -------------------------------------- */
+        #board {
+            flex-direction: row-reverse; /* Inizia da 100 in alto a sinistra */
+            flex-wrap: wrap-reverse;     /* Dispone le righe dal basso verso l'alto */
+            align-content: flex-start;
+        }
+
+        .cell:nth-child(2n) {
+            background-color: #f8f8f8;
+        }
+
+        .highlight {
+            background-color: #ffe0b2 !important; 
+            box-shadow: 0 0 10px #ff9800;
+        }
+        
+        .start-cell { background-color: #4CAF50 !important; color: white; }
+        .end-cell { background-color: #F44336 !important; color: white; }
+        .card-draw { background-color: #2196F3 !important; color: white; }
+        .card-icon { font-size: 1.5em; margin-top: 5px; }
+
+
+        /* -------------------------------------- */
+        /* PEDINE */
+        /* -------------------------------------- */
+        .pawn {
+            position: absolute;
+            width: var(--pawn-size);
+            height: var(--pawn-size);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            font-size: 1.2rem;
+            color: black;
+            font-weight: bold;
+            z-index: 10;
+            /* Iniziale: pedina al centro della prima casella (per calcolo) */
+            transform: translate(0, 0) translate(-50%, -50%); 
+            transition: transform 0.3s ease-in-out; 
+            /* Per gli effetti a cascata */
+            background-color: white; 
+            border: 3px solid #333;
+            user-select: none;
+        }
+        
+        .active-pawn {
+            border-color: gold !important; 
+            box-shadow: 0 0 10px gold;
+        }
+        
+        .pawn-symbol {
+            font-size: 1rem;
+            line-height: 1;
+        }
+        
+        .pawn-name {
+            font-size: 0.5rem;
+            text-align: center;
+            position: absolute;
+            bottom: -15px;
+            width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* -------------------------------------- */
+        /* STATUS E LOG */
+        /* -------------------------------------- */
+        .player-status-list {
+            margin-bottom: 15px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .player-entry {
+            padding: 3px 0;
+        }
+        
+        .active-player {
+            background-color: #e0f7fa;
+            border-radius: 3px;
+            padding: 3px;
+        }
+
+        .log-container {
+            flex-grow: 1;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-y: auto;
+            max-height: 30vh;
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            background-color: #f9f9f9;
+        }
+        
+        .log-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+            flex-shrink: 0;
+        }
+
+        #message-box {
+            display: flex;
+            flex-direction: column-reverse; /* Per mostrare gli ultimi messaggi in alto */
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+            border-bottom: 1px dotted #eee;
+            font-size: 0.8rem;
+        }
+
+        /* Tipi di log per colore */
+        .log-dice { color: #007bff; }
+        .log-bonus { color: #28a745; }
+        .log-malus { color: #dc3545; }
+        .log-info { color: #6c757d; }
+        .log-penalty { color: #ffc107; }
+
+        /* -------------------------------------- */
+        /* MODAL E CONTROLLI */
+        /* -------------------------------------- */
+        .dice-btn {
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .dice-btn:hover:not(:disabled) {
+            background-color: #e68900;
+            transform: scale(1.02);
+        }
+
+        .dice-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Animazione dado (shake) */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            20%, 60% { transform: translate(-5px, -5px); }
+            40%, 80% { transform: translate(5px, 5px); }
+        }
+
+        #dice-result.shake {
+            animation: shake 0.3s ease-in-out 3;
+            display: inline-block;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        #card-modal .modal-content {
+            border: 5px solid gold;
+            background: linear-gradient(135deg, #fefefe, #f0f0f0);
+        }
+
+        .effect-text {
+            margin-top: 10px;
+            font-style: italic;
+            color: #6c757d;
+        }
+
+        .winner-bg {
+            background: linear-gradient(45deg, gold, #ffd700, #ffeb3b);
+            color: #333;
+            border: 10px solid #ccac00;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 5px gold; }
+            50% { box-shadow: 0 0 20px gold; }
+            100% { box-shadow: 0 0 5px gold; }
+        }
+        
+    </style>
 </head>
 <body>
     <div id="name-input-modal" class="modal-overlay show">
@@ -45,8 +361,12 @@
             <div id="log-container" class="log-container">
                 <div class="log-title">Cronologia Eventi 📜</div>
                 <div id="message-box" class="mt-1">
-                    </div> 
+                    <!-- Messaggi di log qui -->
+                </div> 
             </div>
+            
+            <!-- Bottone Pronto per iniziare il gioco -->
+            <button id="ready-btn" class="btn btn-success mt-3">Sono Pronto!</button>
         </section>
 
         <section id="board-container">
@@ -54,16 +374,19 @@
             </div>
         </section>
     </main>
-
+    
+    <!-- Modale Carta -->
     <div id="card-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 id="card-name">Carta Speciale!</h2>
             <p id="card-text"></p>
             <div id="card-effect-desc" class="effect-text"></div>
             <button id="resolve-card-btn" class="dice-btn mt-3">OK!</button>
+            <input type="hidden" id="card-result-data"> <!-- Per memorizzare l'oggetto cardResult -->
         </div>
     </div>
 
+    <!-- Modale Vittoria -->
     <div id="win-modal" class="modal-overlay">
         <div class="modal-content winner-bg">
             <h2>CONGRATULAZIONI!</h2>
@@ -80,7 +403,7 @@
         const socket = io();
         const TOTAL_CELLS = 100;
 
-        // 💥 NUOVI ELEMENTI UI
+        // Elementi UI
         const nameInputModal = document.getElementById('name-input-modal');
         const playerNicknameInput = document.getElementById('player-nickname');
         const joinGameBtn = document.getElementById('join-game-btn');
@@ -89,8 +412,8 @@
         const mainStatusMessage = document.getElementById('main-status-message');
         const statusIcon = document.getElementById('status-icon');
         const statusText = document.getElementById('status-text');
+        const readyBtn = document.getElementById('ready-btn'); // Nuovo bottone Pronto
 
-        // Elementi UI esistenti
         const board = document.getElementById('board');
         const rollDiceBtn = document.getElementById('roll-dice-btn');
         const diceResult = document.getElementById('dice-result');
@@ -101,6 +424,7 @@
         const cardName = document.getElementById('card-name');
         const cardText = document.getElementById('card-text');
         const cardEffectDesc = document.getElementById('card-effect-desc');
+        const cardResultData = document.getElementById('card-result-data'); // Input nascosto per il risultato della carta
         const winModal = document.getElementById('win-modal');
         const winnerMessage = document.getElementById('winner-message');
         const audioToggleBtn = document.getElementById('audio-toggle-btn');
@@ -108,34 +432,41 @@
 
         let boardInitialized = false;
         let lastGameState = null;
-        let isWaitingForAnimation = false; // 🔑 CHIAVE: Stato che blocca il gioco
+        let isWaitingForAnimation = false; 
         let myPlayerName = ''; 
+        let myPlayerId = null; // 🚨 FIX: ID del giocatore locale
 
         // Variabili audio
         let audioEnabled = true;
         const sounds = {
-            diceRoll: new Audio('/dado.mp3'),
-            cardDraw: new Audio('/card.wav'),
-            move: new Audio('/pedina.wav'),
-            win: new Audio('/victory.mp3')
+            diceRoll: new Audio('dado.mp3'),
+            cardDraw: new Audio('card.wav'),
+            move: new Audio('pedina.wav'),
+            win: new Audio('victory.mp3')
         };
-        
+        // Aggiungi un listener per gestire il caricamento non riuscito dei file audio
+        Object.values(sounds).forEach(s => {
+            s.onerror = () => console.warn(`Attenzione: Impossibile caricare il file audio ${s.src}.`);
+        });
+
+        // Configurazione volume
         sounds.diceRoll.volume = 0.5;
         sounds.cardDraw.volume = 0.7;
         sounds.move.volume = 0.3;
         sounds.win.volume = 0.8;
 
         function playSound(soundKey) {
-            if (audioEnabled) {
+            if (audioEnabled && sounds[soundKey]) {
                 const sound = sounds[soundKey];
                 sound.currentTime = 0;
-                sound.play().catch(e => console.error("Audio error:", e));
+                sound.play().catch(e => {
+                    // console.error("Audio error: L'utente non ha interagito con la pagina, impossibile riprodurre l'audio.", e);
+                });
             }
         }
 
         audioToggleBtn.addEventListener('click', () => {
             audioEnabled = !audioEnabled;
-            // 💡 Miglioramento: Uso di icone Font Awesome se possibile
             audioToggleBtn.innerHTML = audioEnabled ? '🔊 Muta' : '🔇 Audio ON';
             if (!audioEnabled) {
                 Object.values(sounds).forEach(s => s.pause());
@@ -145,56 +476,26 @@
         // 💥 Funzione per l'offset delle pedine
         const PAWN_OFFSETS = [
             { x: 0, y: 0 },         // Posizione base (centro)
-            { x: -5, y: -5 },       // Offset 1: in alto a sinistra
-            { x: 5, y: 5 },         // Offset 2: in basso a destra
-            { x: -5, y: 5 },        // Offset 3: in basso a sinistra
-            { x: 5, y: -5 }         // Offset 4: in alto a destra
+            { x: -8, y: -8 },       // Offset 1: in alto a sinistra
+            { x: 8, y: 8 },         // Offset 2: in basso a destra
+            { x: -8, y: 8 },        // Offset 3: in basso a sinistra
+            { x: 8, y: -8 }         // Offset 4: in alto a destra
         ];
 
         // --------------------------------------------------
         // 🧩 LOGICA LAYOUT A SERPENTE (INVARIATA)
         // --------------------------------------------------
-
-        /** Calcola l'ordine effettivo della cella per il layout a serpente. */
-        function getCellIndex(cellNumber) {
-            const size = 10;
-            const row = Math.ceil(cellNumber / size);
-            const isOddRow = row % 2 !== 0;
-
-            if (isOddRow) {
-                // Le righe dispari vanno da sinistra a destra (es. 1, 2, ..., 10)
-                // L'ordine CSS deve essere calcolato dal fondo: 100, 99, ... 1
-                return TOTAL_CELLS - cellNumber + 1;
-            } else {
-                // Le righe pari vanno da destra a sinistra (es. 20, 19, ..., 11)
-                // L'ordine CSS deve essere: (Riga sopra) + (indice inverso)
-                // Esempio: riga 2 (celle 11-20). 
-                // 11 deve essere dopo 10. Ordine 90.
-                // 20 deve essere prima di 21. Ordine 81.
-                const startOfRow = (row - 1) * size + 1;
-                const endOfRow = row * size;
-                // Calcolo: (Indice max - Indice riga sopra) + (Indice riga pari - cellNumber)
-                return TOTAL_CELLS - endOfRow + (cellNumber - startOfRow + 1);
-            }
-        }
         
-        // 💡 NOTA: Il calcolo dell'ordine a serpente è molto complesso. Ho corretto la logica in base al funzionamento
-        // tipico del Flexbox 'order' per ottenere un serpente (1->10, 20->11, 21->30, ecc.)
         function getSnakeOrder(cellNumber) {
             const size = 10;
             const row = Math.ceil(cellNumber / size);
             const isEvenRow = row % 2 === 0;
             
-            // Ordina dalla fine all'inizio (100 in alto a sinistra, 1 in basso a destra)
             const rowStartValue = TOTAL_CELLS - (row * size) + 1;
             
             if (isEvenRow) {
-                // Es. riga 2 (11-20). 11 ha il valore più basso, 20 il più alto.
-                // (riga 1, ordine 91-100). riga 2, ordine 81-90.
                 return rowStartValue + (cellNumber - (row - 1) * size) - 1;
             } else {
-                // Es. riga 1 (1-10). 1 ha il valore più alto, 10 il più basso.
-                // (riga 1, ordine 100-91).
                 return rowStartValue + (size - (cellNumber - (row - 1) * size));
             }
         }
@@ -215,7 +516,6 @@
                 cell.appendChild(cellNumber); 
 
                 if (cardDrawCells.includes(i)) {
-                    // Aggiunta icona alla casella "carta"
                     cell.classList.add('card-draw');
                     const cardIcon = document.createElement('i');
                     cardIcon.className = 'fas fa-scroll card-icon'; 
@@ -230,7 +530,6 @@
                     cellNumber.textContent = 'START';
                 }
                 
-                // ⭐ Uso la funzione per l'ordine a serpente corretto
                 const index = getSnakeOrder(i); 
                 cell.style.order = index; 
                 fragment.appendChild(cell);
@@ -248,11 +547,9 @@
             const cell = document.getElementById(`cell-${cellNumber}`);
             if (!cell) return;
 
-            // Utilizza getBoundingClientRect() e board.getBoundingClientRect() per il calcolo
             const cellRect = cell.getBoundingClientRect();
             const boardRect = board.getBoundingClientRect();
             
-            // Calcola la posizione centrale della casella rispetto al tabellone
             let x = cellRect.left - boardRect.left + (cellRect.width / 2);
             let y = cellRect.top - boardRect.top + (cellRect.height / 2);
 
@@ -264,19 +561,16 @@
             x += offset.x;
             y += offset.y;
 
-            // Sposta la pedina al centro della casella e applica l'offset
             pawn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
         }
 
         /** Esegue l'animazione di movimento su un percorso di caselle */
         function animateMove(playerId, path, finalPosition, allPlayers) {
-            // ✅ CRITICO: Usa il formato ID corretto 'pawn-' + playerId
             const pawn = document.getElementById(`pawn-${playerId}`); 
             
-            // 🛡️ SICUREZZA: Controllo per l'errore undefined (dovrebbe essere risolto)
             if (!pawn) {
                 console.error("ERRORE CRITICO: Pedina non trovata per l'ID:", playerId, "Animazione saltata.");
-                return Promise.resolve(); // Risolvi immediatamente
+                return Promise.resolve(); 
             }
 
             const durationPerCell = 150; 
@@ -286,12 +580,11 @@
 
             return new Promise(resolve => {
                 if (path.length === 0) {
-                    // Movimento istantaneo o nullo
+                    // Movimento istantaneo o nullo (serve solo a riposizionare)
                     const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
                     const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
                     
                     movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
-                    // Rimuove la transizione dopo un breve ritardo per le mosse successive
                     setTimeout(() => pawn.style.transition = 'none', 10); 
                     resolve();
                     return;
@@ -300,22 +593,17 @@
                 path.forEach((cellNumber, index) => {
                     delay += durationPerCell;
 
-                    // 1. Evidenzia la cella e suono
                     setTimeout(() => {
                         const cell = document.getElementById(`cell-${cellNumber}`);
                         if (cell) {
                             cell.classList.add('highlight');
-                            // Suono solo per l'inizio del movimento (opzionale: su ogni cella)
                             if (index === 0) playSound('move'); 
                         }
-                    }, delay - 50); // Piccola anticipazione per il suono/highlight
+                    }, delay - 50); 
 
-                    // 2. Muovi la pedina
                     setTimeout(() => {
-                        // Per i passi intermedi, usiamo l'offset 0 (centro) per chiarezza
                         movePawnToCell(pawn, cellNumber, 0); 
                         
-                        // Rimuovi l'evidenziazione dalla cella precedente
                         if (index > 0) {
                             const prevCell = document.getElementById(`cell-${path[index-1]}`);
                             if (prevCell) {
@@ -323,27 +611,25 @@
                             }
                         }
                         
-                        // Alla fine dell'animazione
                         if (index === path.length - 1) {
-                            // Muovi alla posizione finale con l'offset corretto
                             setTimeout(() => {
                                 // Trova l'indice della pedina sulla casella finale per l'offset corretto
                                 const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-                                // ✅ FIX: Sostituito playersOnCell (non definita) con playersOnFinalCell
+                                // ✅ FIX: Corretto il typo da playersOnCell a playersOnFinalCell
                                 const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId); 
                                 
-                                pawn.style.transition = 'transform 0.3s ease-out'; // Transizione per il posizionamento finale
+                                pawn.style.transition = 'transform 0.3s ease-out'; 
                                 movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
 
                                 setTimeout(() => {
-                                    pawn.style.transition = 'none'; // Rimuovi la transizione dopo il movimento finale
+                                    pawn.style.transition = 'none'; 
                                     const finalCell = document.getElementById(`cell-${cellNumber}`);
                                     if (finalCell) {
                                         finalCell.classList.remove('highlight');
                                     }
                                     resolve();
-                                }, 300); // Durata della transizione finale
-                            }, durationPerCell); // Attendi la fine del movimento all'ultima cella
+                                }, 300); 
+                            }, durationPerCell); 
                         }
                     }, delay);
                 });
@@ -353,6 +639,24 @@
         // --------------------------------------------------
         // 🔄 GESTIONE AGGIORNAMENTI SOCKET.IO
         // --------------------------------------------------
+
+        // 🚨 FIX: Il server invia l'ID del giocatore quando si connette.
+        socket.on('connect', () => {
+             // 1. Invia l'ID quando connesso (server lo invia al socket)
+             // Non è necessario un listener specifico, l'ID è socket.id
+             myPlayerId = socket.id; 
+             
+             // 2. Logica di login
+             if (myPlayerName) {
+                 nameInputModal.classList.remove('show');
+                 socket.emit('set player name', myPlayerName); 
+             } else {
+                 nameInputModal.classList.add('show');
+                 playerNicknameInput.value = ''; 
+                 playerNicknameInput.focus();
+             }
+        });
+
 
         /** Listener per l'aggiornamento generale dello stato (NON per l'animazione) */
         socket.on('game state update', (state) => {
@@ -371,119 +675,134 @@
             
             // 4. Aggiorna lo stato dei giocatori e del turno
             updateStatus(state); 
+            
+            // 5. Gestione visibilità bottone Pronto
+            readyBtn.style.display = (state.game_started || state.players.find(p => p.id === myPlayerId)?.is_ready) ? 'none' : 'block';
         });
 
         // ==========================================================
-        // 🔑 FIX: NUOVO LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO
+        // 🔑 FIX: LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO INIZIALE
         // ==========================================================
         socket.on('dice roll result', async (moveResult) => {
 
-            // 1. Avvia lo stato di animazione e disabilita il dado
             isWaitingForAnimation = true;
             rollDiceBtn.disabled = true;
             
-            // 2. Anima il tiro del dado
+            // Animazione dado
             diceResult.textContent = moveResult.diceRoll;
             diceResult.classList.add('shake');
             playSound('diceRoll');
             
-            // 3. Anima il movimento della pedina
+            // Anima il movimento della pedina
             setTimeout(() => {
                 diceResult.classList.remove('shake');
                 
-                // Uso lo stato dei giocatori prima dell'aggiornamento per l'animazione
+                // Usiamo moveResult.playerId che ora arriva corretto dal server
                 animateMove(
                     moveResult.playerId, 
                     moveResult.path, 
                     moveResult.finalPosition,
                     lastGameState.players 
                 ).then(() => {
-                    // 4. L'ANIMAZIONE DI MOVIMENTO È FINITA:
                     isWaitingForAnimation = false; 
                     
-                    // Invia il messaggio al server per avviare il prossimo passo di gioco.
-                    socket.emit('movement finished', moveResult); // Passa tutto il moveResult
+                    // Invia il messaggio al server per avviare la logica della casella (carta/statica)
+                    socket.emit('movement finished', moveResult);
                 });
-            }, 500); // Ritardo per l'animazione del dado
+            }, 500); 
         });
 
         // ==========================================================
-        // FIX: NUOVO LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
+        // FIX: LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
         // ==========================================================
         socket.on('card to draw', (eventData) => {
             isWaitingForAnimation = false; 
-            showCardModal(eventData.card);
+            
+            const card = eventData.card;
+            const cardResult = eventData.cardResult;
+            
+            playSound('cardDraw');
+            cardName.textContent = card.name;
+            cardText.textContent = card.text; 
+            cardEffectDesc.textContent = card.effect_desc;
+            
+            cardName.style.color = card.type === 'malus' ? '#ff3333' : (card.type === 'bonus' ? '#00ff80' : 'gold');
+            
+            // Memorizza il risultato completo della carta nell'input nascosto per l'invio
+            cardResultData.value = JSON.stringify(eventData);
+
+            cardModal.classList.add('show');
+            updateStatus(lastGameState); 
+            
+            // L'onclick ora usa i dati memorizzati
+            resolveCardBtn.onclick = () => {
+                cardModal.classList.remove('show');
+                
+                // Prepara l'oggetto da inviare al server
+                const fullCardData = JSON.parse(cardResultData.value);
+                
+                // Invia l'oggetto completo al server che ora gestisce l'effetto (incluso movimento cascata)
+                socket.emit('card effect request', fullCardData); 
+                rollDiceBtn.disabled = true; 
+                isWaitingForAnimation = true; 
+            };
         });
 
         // ==========================================================
-        // FIX: GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA
+        // FIX: GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA (CASCATA)
         // ==========================================================
         socket.on('card effect update', async (data) => {
-            isWaitingForAnimation = true; // Blocca tutto per l'animazione degli effetti a cascata
+            isWaitingForAnimation = true; 
             
             if (data.playerUpdates && data.playerUpdates.length > 0) {
                 
-                // 1. Aggiorna le posizioni dei giocatori nello stato locale (per gli offset finali)
-                const playerUpdatesMap = new Map(data.playerUpdates.map(p => [p.id, p]));
-                
+                // Aggiorna lo stato locale con le nuove posizioni (per gli offset finali)
                 const playersAfterCard = lastGameState.players.map(p => {
-                    const update = playerUpdatesMap.get(p.id);
+                    const update = data.playerUpdates.find(u => u.id === p.id);
                     if (update) {
-                         // Solo la posizione finale viene aggiornata per l'animazione
                         return { ...p, position: update.newPos }; 
                     }
                     return p;
                 });
                 lastGameState.players = playersAfterCard; 
                 
-                // 2. Inizia le animazioni per tutti i giocatori mossi dall'effetto carta
+                // Inizia le animazioni a cascata
                 const movePromises = data.playerUpdates.map(update => {
-                    // Animiamo da oldPos a newPos
                     return animateMove(update.id, update.path, update.newPos, playersAfterCard);
                 });
                 
                 await Promise.all(movePromises);
                 
-                // 3. Ricalcola gli offset finali per la posizione di arrivo
+                // Dopo l'animazione, riposiziona con gli offset corretti
                 updatePawns(lastGameState.players);
             }
 
-            if (data.win) {
-                const winner = lastGameState.players.find(p => p.id === data.win); // 'data.win' è l'ID
-                showWin(winner);
-                isWaitingForAnimation = false;
-                return;
-            }
-            
-            if (data.cascadedCard) {
-                // Se c'è una carta a cascata, mostra immediatamente
-                isWaitingForAnimation = false;
-                // La cascata non passa il turno, ma riattiva la modal
-                showCardModal(data.cascadedCard.card);
-                return;
-            }
-            
-            // 4. L'animazione è finita, avvisa il server per far passare il turno
-            socket.emit('card animation finished', data); // Passa tutti i dati al server per la logica finale
+            // Invia al server che l'animazione è finita per passare il turno
+            socket.emit('card animation finished', data);
             isWaitingForAnimation = false;
+        });
+
+        // Gestione fine gioco
+        socket.on('game end', (data) => {
+            const winner = lastGameState.players.find(p => p.id === data.winner);
+            showWin(winner);
         });
 
         // --------------------------------------------------
         // 🔨 FUNZIONI DI SUPPORTO UI E LOG 
         // --------------------------------------------------
         
-        /** AGGIORNAMENTO COMPLETO DELLA CRONOLOGIA DAL SERVER */
         function updateLog(gameLog) {
+            // Aggiorna solo se lo stato del log è cambiato
             messageBox.innerHTML = ''; 
             
             gameLog.forEach(entry => {
                 const logEntry = document.createElement('div');
                 logEntry.className = `log-entry log-${entry.type}`; 
                 
-                // Sostituisce il grassetto Markdown (**) con il tag HTML <strong>
-                let messageHTML = entry.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                let messageHTML = entry.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1');
                 
-                logEntry.innerHTML = `[${entry.timestamp}] ${messageHTML}`; 
+                logEntry.innerHTML = `${messageHTML}`; 
                 
                 messageBox.prepend(logEntry);
             });
@@ -501,23 +820,19 @@
             let statusListHtml = ''; 
 
             players.forEach(player => {
-                // ✅ CRITICO: Usa 'pawn-' come ID
                 let pawn = document.getElementById(`pawn-${player.id}`); 
                 
                 if (!pawn) {
                     pawn = document.createElement('div');
                     pawn.id = `pawn-${player.id}`;
                     pawn.className = 'pawn';
-                    // Modifica: Aggiunto un tag <span> per il simbolo
                     pawn.innerHTML = `<span class="pawn-symbol" id="symbol-${player.id}">${player.symbol}</span><span class="pawn-name">${player.name}</span>`;
                     board.appendChild(pawn);
                 }
                 
-                // Il server non manda 'color', quindi usiamo il simbolo come identificatore visivo
                 pawn.style.zIndex = 10 + player.position; 
                 pawn.classList.remove('active-pawn');
                 
-                // 💡 Gestione stato 'Skip Turn'
                 const symbolSpan = document.getElementById(`symbol-${player.id}`);
                 if (player.skippedTurns > 0) {
                     pawn.classList.add('pawn-skipped');
@@ -553,44 +868,47 @@
         /** Aggiorna il pannello di stato principale e lo stato del pulsante dado. */
         function updateStatus(state) {
             const currentPlayer = state.players.find(p => p.id === state.currentPlayerID);
-            const myPlayer = state.players.find(p => p.id === socket.id);
-            const isWaitingForCard = cardModal.classList.contains('show');
+            const myPlayer = state.players.find(p => p.id === myPlayerId);
+            const isWaitingForCardModal = cardModal.classList.contains('show');
 
-            // AGGIORNA LE INFORMAZIONI DEL MIO GIOCATORE
             if (myPlayer) {
                 myPlayerInfo.innerHTML = `Sei: <span style="font-weight: bold;">${myPlayer.name} ${myPlayer.symbol}</span>`;
             }
 
-            // Inizializza icona e classe
             statusIcon.innerHTML = '';
             mainStatusMessage.className = 'alert mt-2';
             rollDiceBtn.disabled = true;
 
+            if (state.game_started === false && state.players.length > 0 && state.players.every(p => p.is_ready)) {
+                 // Caso strano: tutti pronti ma non iniziato (dovrebbe essere gestito dal server)
+                 mainStatusMessage.classList.add('alert-success');
+                 statusText.textContent = "Partita pronta. In attesa di avvio...";
+            } else if (state.game_started === false) {
+                 mainStatusMessage.classList.add('alert-info');
+                 statusText.textContent = `In attesa di almeno 2 giocatori e che tutti premano "Sono Pronto!" (${state.players.filter(p => p.is_ready).length}/${state.players.length})`;
+            }
+            
             if (state.game_over) {
                 mainStatusMessage.classList.add('alert-danger');
                 statusText.textContent = "La partita è finita! 🏆";
                 return;
             }
             
-            // Rimuovi la classe 'shake' se presente
             diceResult.classList.remove('shake');
 
 
             if (currentPlayer) {
-                const isMyTurn = currentPlayer.id === socket.id;
+                const isMyTurn = currentPlayer.id === myPlayerId;
                 
-                // Disabilita il dado se: non è il mio turno O è in corso un'animazione O sta aspettando una carta O salta il turno
-                const shouldDisableRoll = !isMyTurn || isWaitingForAnimation || isWaitingForCard || currentPlayer.skippedTurns > 0;
+                const shouldDisableRoll = !isMyTurn || isWaitingForAnimation || isWaitingForCardModal || currentPlayer.skippedTurns > 0;
                 rollDiceBtn.disabled = shouldDisableRoll;
 
-                mainStatusMessage.classList.add('alert-info');
-                
                 if (isWaitingForAnimation) {
                     statusText.textContent = "Movimento in corso...";
                     mainStatusMessage.classList.remove('alert-info');
                     mainStatusMessage.classList.add('alert-warning');
-                    statusIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; // Icona di caricamento
-                } else if (isWaitingForCard) {
+                    statusIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                } else if (isWaitingForCardModal) {
                     statusText.textContent = "Carta pescata! Risolvi l'effetto.";
                     mainStatusMessage.classList.remove('alert-info');
                     mainStatusMessage.classList.add('alert-warning');
@@ -615,26 +933,6 @@
             }
         }
         
-        function showCardModal(card) {
-            playSound('cardDraw');
-            cardName.textContent = card.name;
-            cardText.textContent = card.text; // La proprietà è 'text'
-            cardEffectDesc.textContent = card.effect_desc;
-            
-            // Imposta il colore del titolo in base al tipo di carta
-            cardName.style.color = card.type === 'malus' ? '#ff3333' : (card.type === 'bonus' ? '#00ff80' : 'gold');
-            
-            cardModal.classList.add('show');
-            updateStatus(lastGameState); 
-            
-            resolveCardBtn.onclick = () => {
-                cardModal.classList.remove('show');
-                // ✅ CORREZIONE: Usa l'evento atteso dal server per l'applicazione della carta
-                socket.emit('card effect request', card); 
-                rollDiceBtn.disabled = true; 
-            };
-        }
-        
         function showWin(winner) {
             playSound('win');
             winnerMessage.innerHTML = `${winner.name} ${winner.symbol} ha vinto la **Royal Rumble**!`;
@@ -643,23 +941,21 @@
         }
 
         // --------------------------------------------------
-        // 🖱️ GESTIONE INTERAZIONE UTENTE E LOGIN
+        // 🖱️ GESTIONE INTERAZIONE UTENTE
         // --------------------------------------------------
         
-        // Gestione del login
         joinGameBtn.addEventListener('click', () => {
             const nickname = playerNicknameInput.value.trim();
             if (nickname.length >= 3 && nickname.length <= 15) { 
                 myPlayerName = nickname;
                 nameInputModal.classList.remove('show');
-                // ✅ CORREZIONE: Usa l'evento atteso dal server
                 socket.emit('set player name', nickname); 
             } else {
-                alert("Inserisci un nickname da 3 a 15 caratteri!");
+                // Sostituito alert() con log o UI temporanea
+                console.error("Inserisci un nickname da 3 a 15 caratteri!");
             }
         });
 
-        // Permetti di inviare il nome anche con Invio
         playerNicknameInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 joinGameBtn.click();
@@ -673,19 +969,12 @@
                 socket.emit('roll dice request');
             }
         });
-
-        // Inizializza il tabellone quando lo stato iniziale arriva (dopo il login)
-        socket.on('connect', () => {
-            // Se il nome è già stato impostato (riconnessione), invialo di nuovo
-            if (myPlayerName) {
-                nameInputModal.classList.remove('show');
-                socket.emit('set player name', myPlayerName); 
-            } else {
-                nameInputModal.classList.add('show');
-                playerNicknameInput.value = ''; 
-                playerNicknameInput.focus();
-            }
+        
+        readyBtn.addEventListener('click', () => {
+            readyBtn.disabled = true;
+            socket.emit('ready');
         });
+        
     </script>
 </body>
 </html>
