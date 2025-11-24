@@ -23,8 +23,7 @@
             margin: auto;
             border: 4px solid #ff4136; /* Rosso Wrestling */
             box-shadow: 0 0 20px #ff413680;
-            /* FIX CRITICO 1: Aggiunto position: relative per ancorare le pedine */
-            position: relative; 
+            position: relative; /* CRITICO: Ancoraggio per le pedine assolute */
         }
 
         .cell {
@@ -61,8 +60,7 @@
             transition: all 0.5s cubic-bezier(.5, 0, .5, 1);
             cursor: pointer;
             text-shadow: 0 0 5px rgba(0, 0, 0, 0.9);
-            /* FIX CRITICO 2: Centra l'elemento sulla posizione calcolata */
-            transform: translate(-50%, -50%); 
+            transform: translate(-50%, -50%); /* CRITICO: Centra la pedina */
         }
 
         /* Animazione Dado */
@@ -339,8 +337,6 @@
             }
             
             // Applica l'offset finale e la posizione logica dopo l'animazione completa
-            // Questo è gestito dalla chiamata updatePiecesPosition() successiva, ma lo facciamo qui
-            // per il singolo pezzo per immediatezza.
             const finalCell = getCellElement(player.position);
             if (finalCell) {
                 const cellRect = finalCell.getBoundingClientRect();
@@ -391,15 +387,14 @@
                 board.appendChild(cell);
             });
 
-            // Re-order cellElements array to be 1 to 100 for easy access (used for piece positioning later)
+            // Riordina cellElements array per l'accesso da 1 a 100
             cellElements.sort((a, b) => {
-                const posA = parseInt(a.textContent);
-                const posB = parseInt(b.textContent);
+                const posA = parseInt(a.id.split('-')[1]);
+                const posB = parseInt(b.id.split('-')[1]);
                 return posA - posB;
             });
             
             // Aggiunge le pedine (pieceElements) al tabellone
-            // Questo viene chiamato qui e in renderGameState per la massima resilienza
             gameState.players.forEach(player => createPieceElement(player));
         }
         
@@ -415,14 +410,7 @@
             }
             piece.textContent = player.symbol;
             piece.title = player.name;
-            // Assicura che la pedina sia posizionata (utile dopo la creazione)
-            const initialCell = getCellElement(player.position || 1);
-            if(initialCell) {
-                 // Posiziona temporaneamente la pedina al centro della prima cella finché updatePiecesPosition non la sposta
-                 piece.style.left = '50%';
-                 piece.style.top = '50%';
-                 updatePiecesPosition();
-            }
+            updatePiecesPosition();
         }
         
         // Rimuove un elemento pedina (in caso di disconnessione)
@@ -442,12 +430,10 @@
             const existingIds = Object.keys(pieceElements);
             const newIds = gameState.players.map(p => p.id);
 
-            // Aggiungi nuove pedine e aggiorna i simboli
             gameState.players.forEach(player => {
-                createPieceElement(player); // Garantisce la presenza
+                createPieceElement(player); 
             });
 
-            // Rimuovi pedine disconnesse
             existingIds.forEach(id => {
                 if (!newIds.includes(id)) {
                     removePieceElement(id);
@@ -485,11 +471,8 @@
                 turnStatusMessage.textContent = "Non abbastanza giocatori o partita terminata.";
             }
             
-            // 3. Rimuovi overlay se non sono più necessari
-            // Lascia il modal aperto solo se è il mio turno, la carta è stata pescata, e il dado è disabilitato
-            if (myPlayer && myPlayer.isDrawingCard) {
-                // Lascia che sia il modal handler a gestirne la visibilità
-            } else {
+            // 3. Rimuovi overlay se non sono più necessari (tranne se sto pescando la carta)
+            if (myPlayer && !myPlayer.isDrawingCard) {
                 cardModal.classList.add('hidden');
                 cardModal.classList.remove('flex');
             }
@@ -519,7 +502,7 @@
         // Ridisegna le caselle e riposiziona le pedine
         function updateBoardUI() {
             cellElements.forEach(cell => {
-                const pos = parseInt(cell.textContent);
+                const pos = parseInt(cell.id.split('-')[1]);
                 
                 // Reset classi
                 cell.classList.remove('cell-card', 'cell-current');
@@ -536,6 +519,7 @@
                 } else if (pos === 1) {
                     cell.textContent = "START";
                 } else {
+                    // Ripristina il numero della casella se non è speciale
                     cell.textContent = pos;
                 }
             });
@@ -563,9 +547,8 @@
                 
                 logItem.className = `log-item p-1 border-b border-gray-700 ${colorClass}`;
                 logItem.innerHTML = `<span class="text-xs text-gray-500 mr-2">[${entry.timestamp}]</span> ${entry.message}`;
-                gameLog.prepend(logItem); // Usa prepend per mostrare i messaggi più recenti in alto
+                gameLog.prepend(logItem); 
             });
-            // Scorrimento automatico in alto per i log (unshift lato server)
             gameLog.scrollTop = 0; 
         }
 
@@ -574,6 +557,7 @@
         // 1. DADO / MOVIMENTO
         diceRoller.addEventListener('click', () => {
             if (diceRoller.disabled) return;
+            console.log("[CLIENT] Richiesta tiro dado inviata.");
             // Blocca il dado immediatamente dopo la richiesta
             diceRoller.disabled = true;
             socket.emit('roll dice request');
@@ -581,33 +565,30 @@
         });
 
         socket.on('dice roll result', async (result) => {
-            renderGameState(result); // Aggiorna lo stato (posizioni logiche)
+            renderGameState(result); 
             
             const moveResult = result.moveResult;
             const player = gameState.players.find(p => p.id === moveResult.playerId);
             
             if (player) {
                 await animateDice(moveResult.diceRoll);
-                // FIX SICUREZZA: Assicura che l'elemento pedina esista.
                 createPieceElement(player); 
                 await animateMove(player, moveResult.path);
             }
             
             // Ri-aggiorna la posizione finale e lo stato della UI dopo l'animazione
-            // Chiamiamo updatePiecesPosition qui per consolidare la posizione con l'offset corretto
             updatePiecesPosition(); 
             renderLog(); 
 
-            // Comunica al server che il movimento è finito
-            socket.emit('movement finished', moveResult); 
-            
-            // Logica del turno post-animazione (il server invierà un nuovo game state update)
-            if (moveResult.event && moveResult.event.type === 'card' && player.id === myId) {
-                // Se c'è una carta, mostra il modal per il giocatore che l'ha pescata
-                 showCardModal(moveResult.event.data);
-            } 
-            // Se non c'è carta, il server gestirà il passaggio del turno e invierà un nuovo game state update 
-            // che aggiornerà diceRoller.disabled per il prossimo giocatore.
+            // Se non c'è una carta da pescare, il movimento è completato e si passa il turno.
+            if (!moveResult.event || moveResult.event.type !== 'card') {
+                console.log(`[CLIENT] Movimento completato (Nessuna Carta). Invio segnale di fine turno al server: 'movement finished' for player ${player.id}`);
+                socket.emit('movement finished', moveResult); 
+            } else if (moveResult.event.type === 'card' && player.id === myId) {
+                // Se c'è una carta E tocca a me, mostro il modal e aspetto il click 'OK' per inviare 'card effect request'
+                showCardModal(moveResult.event.data);
+            }
+            // NOTA: Se c'è una carta E NON tocca a me, il server gestirà l'attesa del mio click.
         });
         
         // 2. CARTA / EFFETTO
@@ -621,7 +602,7 @@
             
             cardCloseBtn.textContent = "OK, Subisci l'Effetto!";
             
-            // Controlli specifici per carte condizionali (come Eddie)
+            // Controlli specifici per carte condizionali (es. effetto non si applica)
             const myPlayer = gameState.players.find(p => p.id === myId);
             if (card.name === "I lie, i cheat, I steal!" && myPlayer && myPlayer.position >= 40) {
                  cardEffectDesc.textContent = "Nessun effetto, sei già oltre la casella di arrivo!";
@@ -633,7 +614,8 @@
                 cardModal.classList.remove('flex');
                 
                 // Richiesta al server di applicare l'effetto
-                diceRoller.disabled = true; // Mantieni il dado bloccato durante l'effetto
+                console.log("[CLIENT] Modal Carta Chiuso. Invio richiesta di applicazione effetto: 'card effect request'");
+                diceRoller.disabled = true; 
                 socket.emit('card effect request', card);
             };
 
@@ -642,15 +624,13 @@
         }
 
         socket.on('card effect update', async (result) => {
-            renderGameState(result); // Aggiorna lo stato (posizioni logiche e log)
+            renderGameState(result); 
             
             const animationPromises = result.playerUpdates.map(update => {
                 const player = gameState.players.find(p => p.id === update.id);
                 
                 if (player) {
-                    // FIX SICUREZZA: Assicura che l'elemento pedina esista.
                     createPieceElement(player); 
-                    // Il path è un array di caselle da attraversare. Player.position è la posizione finale logica.
                     return animateMove(player, update.path);
                 }
                 return Promise.resolve();
@@ -665,30 +645,27 @@
             // 1. Cascata: Se c'è una carta a cascata, chiedi immediatamente al server l'effetto della nuova carta.
             if (result.cascadedCard && result.cascadedCard.playerID === myId) {
                 // Mostra il modal per la carta cascata (e l'utente cliccherà OK)
+                console.log("[CLIENT] Carta Cascata Trovata. Mostro Modal.");
                 showCardModal(result.cascadedCard.card);
                 return;
             }
 
-            // 2. Extra Turn: Se c'è un turno extra, riabilita il dado per il giocatore corrente.
+            // 2. Extra Turn: Se c'è un turno extra, notificalo. Il server riabiliterà il dado nel prossimo update.
             if (result.extraTurn && result.cardApplied.playerID === myId) {
-                diceRoller.disabled = false;
                 turnStatusMessage.textContent = "Hai guadagnato un turno extra! Tira di nuovo.";
             } 
             
             // 3. Fine Logica: Comunica al server che l'animazione della carta è finita
+            console.log(`[CLIENT] Animazioni Effetto Carta completate. Invio segnale di fine logica al server: 'card animation finished'`);
             socket.emit('card animation finished', result);
-            
-            // Il server invierà il nuovo game state update, che abilita il dado se tocca a me.
-            // Non c'è bisogno di riabilitare qui, a meno che non ci sia stato un turno extra.
         });
         
         // 3. EVENTI GENERALI
         socket.on('connect', () => {
             myId = socket.id;
             myIdDisplay.textContent = myId;
-            createBoard(); // Inizializza la prima volta
+            createBoard(); 
             
-            // Carica il nome salvato in localStorage
             const savedName = localStorage.getItem('playerName');
             if (savedName) {
                 playerNameInput.value = savedName;
@@ -699,7 +676,6 @@
         socket.on('game state update', (newState) => {
             renderGameState(newState);
             
-            // Aggiorna il simbolo locale appena lo stato è pronto
             const myPlayer = newState.players.find(p => p.id === myId);
             if (myPlayer) {
                 mySymbolDisplay.textContent = `Sei ${myPlayer.symbol}`;
@@ -718,7 +694,6 @@
         });
         
         window.addEventListener('resize', () => {
-            // Ricalcola la posizione delle pedine al ridimensionamento
             updatePiecesPosition();
         });
 
