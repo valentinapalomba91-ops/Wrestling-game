@@ -3,999 +3,722 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wrestling Board Game</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"> 
-    
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    
+    <title>Gioco da Tavolo Wrestling: The Finish!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <style>
-        :root {
-            --cell-size: 8vh;
-            --board-gap: 2px;
-            --pawn-size: 30px;
-        }
-
+        @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;700&display=swap');
+        
         body {
-            font-family: 'Roboto', sans-serif;
-            background-color: #f4f4f4;
-            color: #333;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a2e; /* Dark theme */
         }
-
-        header {
-            background-color: #343a40;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 1.5rem;
-        }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        #my-player-info {
-            padding: 5px 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
-            font-size: 0.9rem;
-        }
-
-        main {
-            display: flex;
-            flex-grow: 1;
-            padding: 20px;
-            gap: 20px;
-        }
-
-        #status-panel {
-            flex-basis: 300px;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        #board-container {
-            flex-grow: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative; 
-        }
-
-        #board {
-            display: flex;
-            flex-wrap: wrap;
-            width: calc(10 * var(--cell-size) + 9 * var(--board-gap)); 
-            height: calc(10 * var(--cell-size) + 9 * var(--board-gap));
-            background-color: #eee;
-            border: 5px solid #343a40;
-            position: relative;
+        /* Stile specifico per il tabellone */
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            aspect-ratio: 1 / 1;
+            max-width: 600px;
+            margin: auto;
+            border: 4px solid #ff4136; /* Rosso Wrestling */
+            box-shadow: 0 0 20px #ff413680;
         }
 
         .cell {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            border: 1px solid #ccc;
-            box-sizing: border-box;
-            background-color: #fff;
             position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-size: 0.8em;
-            font-weight: bold;
-            transition: background-color 0.1s;
-        }
-
-        /* -------------------------------------- */
-        /* LAYOUT A SERPENTE (Flexbox Order) */
-        /* -------------------------------------- */
-        #board {
-            flex-direction: row-reverse; /* Inizia da 100 in alto a sinistra */
-            flex-wrap: wrap-reverse;     /* Dispone le righe dal basso verso l'alto */
-            align-content: flex-start;
-        }
-
-        .cell:nth-child(2n) {
-            background-color: #f8f8f8;
-        }
-
-        .highlight {
-            background-color: #ffe0b2 !important; 
-            box-shadow: 0 0 10px #ff9800;
-        }
-        
-        .start-cell { background-color: #4CAF50 !important; color: white; }
-        .end-cell { background-color: #F44336 !important; color: white; }
-        .card-draw { background-color: #2196F3 !important; color: white; }
-        .card-icon { font-size: 1.5em; margin-top: 5px; }
-
-
-        /* -------------------------------------- */
-        /* PEDINE */
-        /* -------------------------------------- */
-        .pawn {
-            position: absolute;
-            width: var(--pawn-size);
-            height: var(--pawn-size);
-            border-radius: 50%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-            font-size: 1.2rem;
-            color: black;
-            font-weight: bold;
-            z-index: 10;
-            /* Iniziale: pedina al centro della prima casella (per calcolo) */
-            transform: translate(0, 0) translate(-50%, -50%); 
-            transition: transform 0.3s ease-in-out; 
-            /* Per gli effetti a cascata */
-            background-color: white; 
-            border: 3px solid #333;
-            user-select: none;
-        }
-        
-        .active-pawn {
-            border-color: gold !important; 
-            box-shadow: 0 0 10px gold;
-        }
-        
-        .pawn-symbol {
-            font-size: 1rem;
-            line-height: 1;
-        }
-        
-        .pawn-name {
-            font-size: 0.5rem;
-            text-align: center;
-            position: absolute;
-            bottom: -15px;
-            width: 100%;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* -------------------------------------- */
-        /* STATUS E LOG */
-        /* -------------------------------------- */
-        .player-status-list {
-            margin-bottom: 15px;
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        
-        .player-entry {
-            padding: 3px 0;
-        }
-        
-        .active-player {
-            background-color: #e0f7fa;
-            border-radius: 3px;
-            padding: 3px;
-        }
-
-        .log-container {
-            flex-grow: 1;
-            border: 1px solid #ddd;
-            padding: 10px;
-            border-radius: 4px;
-            overflow-y: auto;
-            max-height: 30vh;
-            margin-top: 10px;
-            display: flex;
-            flex-direction: column;
-            background-color: #f9f9f9;
-        }
-        
-        .log-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
-            flex-shrink: 0;
-        }
-
-        #message-box {
-            display: flex;
-            flex-direction: column-reverse; /* Per mostrare gli ultimi messaggi in alto */
-            overflow-y: auto;
-            flex-grow: 1;
-        }
-        
-        .log-entry {
-            margin: 2px 0;
-            padding: 2px 0;
-            border-bottom: 1px dotted #eee;
-            font-size: 0.8rem;
-        }
-
-        /* Tipi di log per colore */
-        .log-dice { color: #007bff; }
-        .log-bonus { color: #28a745; }
-        .log-malus { color: #dc3545; }
-        .log-info { color: #6c757d; }
-        .log-penalty { color: #ffc107; }
-
-        /* -------------------------------------- */
-        /* MODAL E CONTROLLI */
-        /* -------------------------------------- */
-        .dice-btn {
-            background-color: #ff9800;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
-        }
-
-        .dice-btn:hover:not(:disabled) {
-            background-color: #e68900;
-            transform: scale(1.02);
-        }
-
-        .dice-btn:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        /* Animazione dado (shake) */
-        @keyframes shake {
-            0%, 100% { transform: translate(0, 0); }
-            20%, 60% { transform: translate(-5px, -5px); }
-            40%, 80% { transform: translate(5px, 5px); }
-        }
-
-        #dice-result.shake {
-            animation: shake 0.3s ease-in-out 3;
-            display: inline-block;
-        }
-
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal-overlay.show {
+            width: 100%;
             display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #4a4e69;
+            box-sizing: border-box;
+            font-size: 0.75rem;
+            color: #ffffff;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px #000;
+            background-color: #2e3047;
+            transition: background-color 0.3s ease;
         }
 
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        .cell-card {
+            background-color: #fca311; /* Giallo per le carte */
+            color: #1a1a2e;
+        }
+        .cell-current {
+            background-color: #4cc9f0 !important; /* Blu chiaro per il vincitore */
+        }
+
+        /* Posizionamento dei giocatori (pedine) */
+        .piece {
+            position: absolute;
+            font-size: 1.5rem;
+            line-height: 1;
+            z-index: 10;
+            transition: all 0.5s cubic-bezier(.5, 0, .5, 1);
+            cursor: pointer;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.9);
+        }
+
+        /* Animazione Dado */
+        @keyframes dice-roll {
+            0%, 100% { transform: translateY(0) rotate(0); }
+            50% { transform: translateY(-10px) rotate(360deg); }
+        }
+
+        #dice-roller {
+            font-family: 'Bangers', cursive;
         }
         
-        #card-modal .modal-content {
-            border: 5px solid gold;
-            background: linear-gradient(135deg, #fefefe, #f0f0f0);
+        .dice-rolling {
+            animation: dice-roll 0.2s infinite alternate;
         }
 
-        .effect-text {
-            margin-top: 10px;
-            font-style: italic;
-            color: #6c757d;
+        /* Log */
+        #game-log {
+            height: 200px;
+            overflow-y: auto;
+            border-radius: 8px;
+            background-color: #1f2038;
+            padding: 10px;
+            font-size: 0.85rem;
         }
-
-        .winner-bg {
-            background: linear-gradient(45deg, gold, #ffd700, #ffeb3b);
-            color: #333;
-            border: 10px solid #ccac00;
-            animation: pulse 1.5s infinite;
+        .log-dice { color: #4cc9f0; }
+        .log-card { color: #fca311; }
+        .log-malus { color: #ff4136; }
+        .log-bonus { color: #00b894; }
+        .log-win { color: #fcc419; font-weight: bold; }
+        .log-effect { color: #8e8e93; }
+        .log-error { color: #e74c3c; }
+        
+        /* Modal */
+        .card-modal {
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 50;
         }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 5px gold; }
-            50% { box-shadow: 0 0 20px gold; }
-            100% { box-shadow: 0 0 5px gold; }
+        .card-container {
+            border: 5px solid;
+            background-color: #1a1a2e;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
         }
         
+        .card-bonus { border-color: #00b894; } /* Verde */
+        .card-malus { border-color: #ff4136; } /* Rosso */
+        .card-special { border-color: #4cc9f0; } /* Blu */
+
     </style>
 </head>
-<body>
-    <div id="name-input-modal" class="modal-overlay show">
-        <div class="modal-content">
-            <h3 class="mb-3">Inserisci il tuo Nickname da Wrestler</h3>
-            <input type="text" id="player-nickname" class="form-control mb-3" placeholder="Es: The Rock" required maxlength="15"> 
-            <button id="join-game-btn" class="btn btn-primary">Entra nel Ring</button>
+<body class="p-4 md:p-8 min-h-screen">
+
+    <!-- Modal per la Carta -->
+    <div id="card-modal" class="card-modal fixed inset-0 hidden items-center justify-center p-4 transition-opacity duration-300">
+        <div id="card-container" class="card-container rounded-xl p-6 w-full max-w-md text-white text-center">
+            <h2 id="card-title" class="text-3xl font-bold font-['Bangers'] mb-4"></h2>
+            <p id="card-text" class="text-lg mb-6 font-semibold"></p>
+            <div class="p-3 bg-gray-700 rounded-lg shadow-inner">
+                <p class="text-sm font-light italic">Effetto:</p>
+                <p id="card-effect-desc" class="text-xl font-bold"></p>
+            </div>
+            <button id="card-close-btn" class="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-150">
+                OK, Subisci l'Effetto!
+            </button>
         </div>
     </div>
     
-    <header>
-        <h1>Wrestling Board Game 🏆</h1>
-        <div class="header-controls">
-            <div id="my-player-info"></div> 
-            <button id="audio-toggle-btn" class="dice-btn">🔊 Muta</button>
-            <button id="roll-dice-btn" class="dice-btn" disabled>Tira Dado! <i class="fas fa-dice"></i></button>
-        </div>
-    </header>
-
-    <main>
-        <section id="status-panel">
-            <h2>Stato Partita</h2>
-            <div id="player-status" class="player-status-list">In attesa di giocatori...</div>
-            <p>Dado: <span id="dice-result">0</span></p>
-            
-            <div id="main-status-message" class="alert alert-info mt-2">
-                <span id="status-icon" style="margin-right: 5px;"></span>
-                <span id="status-text">In attesa di giocatori...</span>
-            </div> 
-
-            <div id="log-container" class="log-container">
-                <div class="log-title">Cronologia Eventi 📜</div>
-                <div id="message-box" class="mt-1">
-                    </div> 
-            </div>
-            
-            <button id="ready-btn" class="btn btn-success mt-3">Sono Pronto!</button>
-        </section>
-
-        <section id="board-container">
-            <div id="board">
-            </div>
-        </section>
-    </main>
-    
-    <div id="card-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h2 id="card-name">Carta Speciale!</h2>
-            <p id="card-text"></p>
-            <div id="card-effect-desc" class="effect-text"></div>
-            <button id="resolve-card-btn" class="dice-btn mt-3">OK!</button>
-            <input type="hidden" id="card-result-data"> </div>
-    </div>
-
-    <div id="win-modal" class="modal-overlay">
-        <div class="modal-content winner-bg">
-            <h2>CONGRATULAZIONI!</h2>
-            <p id="winner-message" style="font-size: 1.5em;"></p>
+    <!-- Modal di Vittoria -->
+    <div id="win-modal" class="card-modal fixed inset-0 hidden items-center justify-center p-4 transition-opacity duration-300">
+        <div class="card-container border-yellow-500 rounded-xl p-8 w-full max-w-lg text-white text-center bg-gray-900">
+            <h2 class="text-4xl font-bold font-['Bangers'] mb-4 text-yellow-400">VITTORIA!</h2>
+            <p id="win-message" class="text-xl mb-8 font-semibold">Il giocatore X ha vinto la partita!</p>
+            <button id="restart-game-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-150">
+                Ricomincia Partita
+            </button>
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- Contenitore Principale -->
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-6 text-white">
+            <h1 class="text-5xl font-['Bangers'] text-yellow-400 tracking-wider">WRESTLING: THE FINISH!</h1>
+            <p class="text-sm italic text-gray-400">Il Gioco da Tavolo Multi-Player definitivo</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Colonna 1: Pannello di Controllo -->
+            <div class="lg:col-span-1 space-y-4">
+                <div class="bg-gray-800 p-4 rounded-xl shadow-lg border-t-4 border-yellow-500">
+                    <h2 class="text-xl font-bold text-white mb-3">La Tua Identità</h2>
+                    <div id="player-info" class="text-white">
+                        <p class="text-sm">ID: <span id="my-id" class="font-mono text-gray-400 text-xs"></span></p>
+                        <div class="mt-2">
+                            <label for="player-name" class="block text-sm font-medium">Nome Giocatore:</label>
+                            <input type="text" id="player-name" placeholder="Inserisci il tuo nome" maxlength="15"
+                                class="w-full mt-1 p-2 border border-gray-600 rounded-lg bg-gray-700 text-white focus:ring-yellow-500 focus:border-yellow-500">
+                            <p id="my-symbol-display" class="mt-2 text-2xl font-['Bangers']"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded-xl shadow-lg border-t-4 border-blue-500">
+                    <h2 class="text-xl font-bold text-white mb-3">A Chi Tocca</h2>
+                    <div id="turn-display" class="flex items-center space-x-3">
+                        <div id="current-player-symbol" class="text-4xl">?</div>
+                        <p id="current-player-name" class="text-2xl font-bold text-white">Caricamento...</p>
+                    </div>
+                    <button id="dice-roller" 
+                            class="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-xl transition duration-150 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                        <i class="fas fa-dice mr-2"></i> Tira il Dado!
+                    </button>
+                    <p id="dice-value-display" class="text-center text-3xl font-['Bangers'] mt-3 text-yellow-400">
+                        <span id="last-roll">0</span>
+                    </p>
+                    <p id="turn-status-message" class="text-center text-sm mt-2 text-gray-300 italic"></p>
+                </div>
+                
+                <div class="bg-gray-800 p-4 rounded-xl shadow-lg border-t-4 border-green-500">
+                    <h2 class="text-xl font-bold text-white mb-3">Log di Gioco</h2>
+                    <div id="game-log" class="text-gray-200">
+                        <!-- Log messages here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonna 2: Tabellone di Gioco -->
+            <div class="lg:col-span-2 flex justify-center items-start pt-6">
+                <div id="game-board">
+                    <!-- Le caselle verranno generate da JS -->
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
     <script>
-        // ==========================================================
-        // 🎮 LOGICA CLIENT-SIDE E GESTIONE UI
-        // ==========================================================
-
         const socket = io();
         const TOTAL_CELLS = 100;
+        let myId = null;
+        let gameState = { players: [], currentPlayerID: null, cardDrawCells: [], game_over: false };
+        let cellElements = [];
+        let pieceElements = {};
 
-        // Elementi UI
-        const nameInputModal = document.getElementById('name-input-modal');
-        const playerNicknameInput = document.getElementById('player-nickname');
-        const joinGameBtn = document.getElementById('join-game-btn');
-        const logContainer = document.getElementById('log-container');
-        const myPlayerInfo = document.getElementById('my-player-info');
-        const mainStatusMessage = document.getElementById('main-status-message');
-        const statusIcon = document.getElementById('status-icon');
-        const statusText = document.getElementById('status-text');
-        const readyBtn = document.getElementById('ready-btn'); 
-
-        const board = document.getElementById('board');
-        const rollDiceBtn = document.getElementById('roll-dice-btn');
-        const diceResult = document.getElementById('dice-result');
-        const playerStatus = document.getElementById('player-status');
-        const messageBox = document.getElementById('message-box');
+        // --- MAPPATURA UI ---
+        const board = document.getElementById('game-board');
+        const playerNameInput = document.getElementById('player-name');
+        const mySymbolDisplay = document.getElementById('my-symbol-display');
+        const myIdDisplay = document.getElementById('my-id');
+        const diceRoller = document.getElementById('dice-roller');
+        const lastRollDisplay = document.getElementById('last-roll');
+        const turnDisplayName = document.getElementById('current-player-name');
+        const turnDisplaySymbol = document.getElementById('current-player-symbol');
+        const turnStatusMessage = document.getElementById('turn-status-message');
+        const gameLog = document.getElementById('game-log');
         const cardModal = document.getElementById('card-modal');
-        const resolveCardBtn = document.getElementById('resolve-card-btn');
-        const cardName = document.getElementById('card-name');
+        const cardContainer = document.getElementById('card-container');
+        const cardTitle = document.getElementById('card-title');
         const cardText = document.getElementById('card-text');
         const cardEffectDesc = document.getElementById('card-effect-desc');
-        const cardResultData = document.getElementById('card-result-data'); 
+        const cardCloseBtn = document.getElementById('card-close-btn');
         const winModal = document.getElementById('win-modal');
-        const winnerMessage = document.getElementById('winner-message');
-        const audioToggleBtn = document.getElementById('audio-toggle-btn');
+        const winMessage = document.getElementById('win-message');
+        const restartGameBtn = document.getElementById('restart-game-btn');
 
 
-        let boardInitialized = false;
-        let lastGameState = null;
-        let isWaitingForAnimation = false; 
-        let myPlayerName = ''; 
-        let myPlayerId = null; 
-
-        // Variabili audio
-        let audioEnabled = true;
-        const sounds = {
-            // ✅ FIX 1: Corretto il riferimento a 'vittoria.mp3'
-            diceRoll: new Audio('dado.mp3'), 
-            cardDraw: new Audio('card.wav'),
-            move: new Audio('pedina.wav'),
-            win: new Audio('vittoria.mp3') 
-        };
-        // Aggiungi un listener per gestire il caricamento non riuscito dei file audio
-        Object.values(sounds).forEach(s => {
-            s.onerror = () => console.warn(`Attenzione: Impossibile caricare il file audio ${s.src}.`);
-        });
-
-        // Configurazione volume
-        sounds.diceRoll.volume = 0.5;
-        sounds.cardDraw.volume = 0.7;
-        sounds.move.volume = 0.3;
-        sounds.win.volume = 0.8;
-
-        function playSound(soundKey) {
-            if (audioEnabled && sounds[soundKey]) {
-                const sound = sounds[soundKey];
-                sound.currentTime = 0;
-                // Gestione della promessa per l'autoplay (necessario per molti browser)
-                sound.play().catch(e => {
-                    // console.error("Audio error: L'utente non ha interagito con la pagina, impossibile riprodurre l'audio.", e);
-                });
-            }
-        }
-
-        audioToggleBtn.addEventListener('click', () => {
-            audioEnabled = !audioEnabled;
-            audioToggleBtn.innerHTML = audioEnabled ? '🔊 Muta' : '🔇 Audio ON';
-            if (!audioEnabled) {
-                Object.values(sounds).forEach(s => s.pause());
-            }
-        });
-
-        // 💥 Funzione per l'offset delle pedine
-        const PAWN_OFFSETS = [
-            { x: 0, y: 0 },         // Posizione base (centro)
-            { x: -8, y: -8 },       // Offset 1: in alto a sinistra
-            { x: 8, y: 8 },         // Offset 2: in basso a destra
-            { x: -8, y: 8 },        // Offset 3: in basso a sinistra
-            { x: 8, y: -8 }         // Offset 4: in alto a destra
-        ];
-
-        // --------------------------------------------------
-        // 🧩 LOGICA LAYOUT A SERPENTE (INVARIATA)
-        // --------------------------------------------------
+        // --- FUNZIONI DI UTILITÀ ---
         
-        function getSnakeOrder(cellNumber) {
-            const size = 10;
-            const row = Math.ceil(cellNumber / size);
-            const isEvenRow = row % 2 === 0;
-            
-            const rowStartValue = TOTAL_CELLS - (row * size) + 1;
-            
-            if (isEvenRow) {
-                return rowStartValue + (cellNumber - (row - 1) * size) - 1;
-            } else {
-                return rowStartValue + (size - (cellNumber - (row - 1) * size));
-            }
+        // Simula il tiro del dado
+        function animateDice(value) {
+            return new Promise(resolve => {
+                diceRoller.classList.add('dice-rolling');
+                lastRollDisplay.textContent = '?';
+                setTimeout(() => {
+                    diceRoller.classList.remove('dice-rolling');
+                    lastRollDisplay.textContent = value;
+                    resolve();
+                }, 1000);
+            });
         }
         
-        /** Costruisce il tabellone di gioco (1-100) */
-        function buildBoard(cardDrawCells) {
-            if (boardInitialized) return;
+        // Trova il div di una casella dato il numero (1-100)
+        function getCellElement(pos) {
+            // Mappa l'indice 0-99 alla posizione 1-100
+            if (pos >= 1 && pos <= TOTAL_CELLS) {
+                return cellElements[pos - 1];
+            }
+            return null;
+        }
 
-            const fragment = document.createDocumentFragment();
-            for (let i = 1; i <= TOTAL_CELLS; i++) {
+        // Calcola l'offset per raggruppare le pedine sulla stessa casella
+        function calculateOffset(cellId, pieceId) {
+            const playersOnCell = gameState.players.filter(p => p.position === cellId);
+            const index = playersOnCell.findIndex(p => p.id === pieceId);
+            
+            // Usato per distribuire le pedine in un piccolo cerchio o riga
+            const angle = (index / playersOnCell.length) * 2 * Math.PI;
+            const radius = 10; 
+
+            const offsetX = radius * Math.cos(angle);
+            const offsetY = radius * Math.sin(angle);
+
+            return { offsetX, offsetY };
+        }
+
+        // Aggiorna la posizione di tutte le pedine in un colpo solo
+        function updatePiecesPosition() {
+            gameState.players.forEach(player => {
+                const cell = getCellElement(player.position);
+                const piece = pieceElements[player.id];
+                
+                if (cell && piece) {
+                    const cellRect = cell.getBoundingClientRect();
+                    const boardRect = board.getBoundingClientRect();
+                    
+                    const cellCenter = {
+                        x: cellRect.left + cellRect.width / 2,
+                        y: cellRect.top + cellRect.height / 2
+                    };
+
+                    const offset = calculateOffset(player.position, player.id);
+                    
+                    // Posiziona la pedina rispetto al contenitore del tabellone
+                    piece.style.left = `${cellCenter.x - boardRect.left + offset.offsetX}px`;
+                    piece.style.top = `${cellCenter.y - boardRect.top + offset.offsetY}px`;
+                }
+            });
+        }
+        
+        // Animazione del movimento della pedina
+        async function animateMove(player, path) {
+            // FIX: Aggiunto un controllo più robusto e un log per l'errore segnalato dall'utente.
+            if (!player || !player.id) {
+                console.error("[ANIMATION ERROR] Oggetto giocatore nullo o mancante.");
+                return;
+            }
+            
+            let piece = pieceElements[player.id];
+            if (!piece) {
+                console.error(`[ANIMATION ERROR] Pedina per ID ${player.id} non trovata. Animazione saltata.`);
+                // Non tentiamo di creare qui, ma ci affidiamo al check di sicurezza prima di chiamare animateMove.
+                return; 
+            }
+
+            // Inizializza l'animazione passo dopo passo
+            for (let i = 0; i < path.length; i++) {
+                const newPos = path[i];
+                const cell = getCellElement(newPos);
+                
+                if (cell) {
+                    const cellRect = cell.getBoundingClientRect();
+                    const boardRect = board.getBoundingClientRect();
+                    
+                    const cellCenter = {
+                        x: cellRect.left + cellRect.width / 2,
+                        y: cellRect.top + cellRect.height / 2
+                    };
+                    
+                    // Non calcolare l'offset per i passi intermedi per evitare jittering
+                    // Solo l'ultima posizione avrà l'offset corretto.
+                    piece.style.left = `${cellCenter.x - boardRect.left}px`;
+                    piece.style.top = `${cellCenter.y - boardRect.top}px`;
+                    
+                    // Ritardo tra una casella e l'altra
+                    await new Promise(r => setTimeout(r, 100)); 
+                }
+            }
+            
+            // Applica l'offset finale e la posizione logica dopo l'animazione completa
+            const finalCell = getCellElement(player.position);
+            if (finalCell) {
+                const cellRect = finalCell.getBoundingClientRect();
+                const boardRect = board.getBoundingClientRect();
+                const cellCenter = {
+                    x: cellRect.left + cellRect.width / 2,
+                    y: cellRect.top + cellRect.height / 2
+                };
+                const offset = calculateOffset(player.position, player.id);
+                piece.style.left = `${cellCenter.x - boardRect.left + offset.offsetX}px`;
+                piece.style.top = `${cellCenter.y - boardRect.top + offset.offsetY}px`;
+            }
+
+            return true;
+        }
+
+        // --- FUNZIONI DI INIZIALIZZAZIONE E RENDER ---
+
+        // Funzione per generare il tabellone 10x10 a spirale
+        function createBoard() {
+            board.innerHTML = '';
+            cellElements = []; // Reset delle reference
+
+            let positions = new Array(TOTAL_CELLS).fill(0).map((_, i) => i + 1);
+            let map = []; // Array 10x10
+
+            // Logica a serpente (Snakes & Ladders style)
+            for (let r = 0; r < 10; r++) {
+                let row = positions.slice(r * 10, (r + 1) * 10);
+                // Inverti le righe pari (dall'alto in basso, contando da 0)
+                if (r % 2 !== 0) { 
+                    row.reverse(); 
+                }
+                map.push(row);
+            }
+            // Inverti l'ordine delle righe per far partire la casella 1 in basso a sinistra
+            map.reverse(); 
+            
+            // Aggiungi le caselle al DOM
+            map.flat().forEach(pos => {
                 const cell = document.createElement('div');
                 cell.className = 'cell';
-                cell.id = `cell-${i}`;
+                cell.id = `cell-${pos}`;
+                cell.textContent = pos;
                 
-                const cellNumber = document.createElement('span');
-                cellNumber.className = 'cell-number';
-                cellNumber.textContent = i;
-                cell.appendChild(cellNumber); 
+                // Mette la casella 1 in basso a sinistra e 100 in alto a sinistra
+                
+                // Riferimento al div effettivo (per la posizione)
+                cellElements.push(cell); 
+                
+                board.appendChild(cell);
+            });
 
-                if (cardDrawCells.includes(i)) {
-                    cell.classList.add('card-draw');
-                    const cardIcon = document.createElement('i');
-                    cardIcon.className = 'fas fa-scroll card-icon'; 
-                    cell.appendChild(cardIcon);
-                }
-                if (i === TOTAL_CELLS) {
-                    cell.classList.add('end-cell');
-                    cellNumber.textContent = 'FINISH';
-                }
-                if (i === 1) {
-                    cell.classList.add('start-cell');
-                    cellNumber.textContent = 'START';
-                }
-                
-                const index = getSnakeOrder(i); 
-                cell.style.order = index; 
-                fragment.appendChild(cell);
-            }
-            board.appendChild(fragment);
-            boardInitialized = true;
+            // Re-order cellElements array to be 1 to 100 for easy access (used for piece positioning later)
+            cellElements.sort((a, b) => {
+                const posA = parseInt(a.textContent);
+                const posB = parseInt(b.textContent);
+                return posA - posB;
+            });
+            
+            // Aggiunge le pedine (pieceElements) al tabellone
+            gameState.players.forEach(player => createPieceElement(player));
         }
-
-        // --------------------------------------------------
-        // 🚀 ANIMAZIONI E MOVIMENTO
-        // --------------------------------------------------
         
-        /** Muove la pedina nel CSS alla posizione finale della casella, applicando l'offset. */
-        function movePawnToCell(pawn, cellNumber, playerIndexOnCell) {
-            const cell = document.getElementById(`cell-${cellNumber}`);
-            if (!cell) {
-                console.error(`Cella non trovata per il numero: ${cellNumber}`);
-                return;
+        // Crea l'elemento DOM per la pedina
+        function createPieceElement(player) {
+            let piece = pieceElements[player.id];
+            if (!piece) {
+                piece = document.createElement('div');
+                piece.id = `piece-${player.id}`;
+                piece.className = 'piece';
+                pieceElements[player.id] = piece;
+                board.appendChild(piece);
             }
-
-            // Ottenere le coordinate della cella rispetto al container del tabellone
-            const cellRect = cell.getBoundingClientRect();
-            const boardRect = board.getBoundingClientRect();
-            
-            let x = cellRect.left - boardRect.left + (cellRect.width / 2);
-            let y = cellRect.top - boardRect.top + (cellRect.height / 2);
-
-            // APPLICA OFFSET
-            const offsetIndex = (playerIndexOnCell !== undefined) ? (playerIndexOnCell % PAWN_OFFSETS.length) : 0;
-            const offset = PAWN_OFFSETS[offsetIndex];
-
-            // Applica l'offset in pixel
-            x += offset.x;
-            y += offset.y;
-
-            pawn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+            piece.textContent = player.symbol;
+            piece.title = player.name;
         }
-
-        /** Esegue l'animazione di movimento su un percorso di caselle */
-        function animateMove(playerId, path, finalPosition, allPlayers) {
-            // ✅ FIX 2: La pedina viene creata in updatePawns, ma assicuriamoci che l'ID sia valido prima di tutto.
-            if (!playerId) {
-                console.error("ERRORE CRITICO: Pedina non trovata, l'ID è nullo o indefinito. Animazione saltata.");
-                return Promise.resolve(); 
-            }
-            
-            const pawn = document.getElementById(`pawn-${playerId}`); 
-            
-            if (!pawn) {
-                // Questo non dovrebbe succedere se updatePawns è stato chiamato correttamente prima del dado
-                console.error(`ERRORE CRITICO: Pedina non trovata per l'ID: ${playerId}. Animazione saltata.`);
-                return Promise.resolve(); 
-            }
-
-            const durationPerCell = 150; 
-            let delay = 0;
-            
-            pawn.style.transition = `transform ${path.length * durationPerCell / 1000}s linear`; 
-
-            return new Promise(resolve => {
-                if (path.length === 0) {
-                    // Movimento istantaneo o nullo (serve solo a riposizionare)
-                    const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-                    const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId);
-                    
-                    movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
-                    setTimeout(() => pawn.style.transition = 'none', 10); 
-                    resolve();
-                    return;
-                }
-
-                path.forEach((cellNumber, index) => {
-                    delay += durationPerCell;
-
-                    setTimeout(() => {
-                        const cell = document.getElementById(`cell-${cellNumber}`);
-                        if (cell) {
-                            cell.classList.add('highlight');
-                            if (index === 0) playSound('move'); 
-                        }
-                    }, delay - 50); 
-
-                    setTimeout(() => {
-                        // Durante l'animazione, usa offset 0 per evitare salti visivi
-                        movePawnToCell(pawn, cellNumber, 0); 
-                        
-                        if (index > 0) {
-                            const prevCell = document.getElementById(`cell-${path[index-1]}`);
-                            if (prevCell) {
-                                prevCell.classList.remove('highlight');
-                            }
-                        }
-                        
-                        if (index === path.length - 1) {
-                            setTimeout(() => {
-                                // Trova l'indice della pedina sulla casella finale per l'offset corretto
-                                const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-                                const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId); 
-                                
-                                pawn.style.transition = 'transform 0.3s ease-out'; 
-                                movePawnToCell(pawn, finalPosition, playerIndexOnFinalCell);
-
-                                setTimeout(() => {
-                                    pawn.style.transition = 'none'; 
-                                    const finalCell = document.getElementById(`cell-${cellNumber}`);
-                                    if (finalCell) {
-                                        finalCell.classList.remove('highlight');
-                                    }
-                                    resolve();
-                                }, 300); 
-                            }, durationPerCell); 
-                        }
-                    }, delay);
-                });
-            });
-        }
-
-        // --------------------------------------------------
-        // 🔄 GESTIONE AGGIORNAMENTI SOCKET.IO
-        // --------------------------------------------------
-
-        socket.on('connect', () => {
-             // 1. Invia l'ID quando connesso (server lo invia al socket)
-             myPlayerId = socket.id; 
-             
-             // 2. Logica di login
-             if (myPlayerName) {
-                 nameInputModal.classList.remove('show');
-                 socket.emit('set player name', myPlayerName); 
-             } else {
-                 nameInputModal.classList.add('show');
-                 playerNicknameInput.value = ''; 
-                 playerNicknameInput.focus();
-             }
-        });
-
-
-        /** Listener per l'aggiornamento generale dello stato (NON per l'animazione) */
-        socket.on('game state update', (state) => {
-            lastGameState = state;
-            
-            // 1. Inizializzazione tabellone
-            if (!boardInitialized) {
-                buildBoard(state.cardDrawCells);
-            }
-            
-            // 2. Creazione/Aggiornamento pedine
-            updatePawns(state.players);
-            
-            // 3. AGGIORNAMENTO CRONOLOGIA EVENTI
-            updateLog(state.gameLog);
-            
-            // 4. Aggiorna lo stato dei giocatori e del turno
-            updateStatus(state); 
-            
-            // 5. Gestione visibilità bottone Pronto
-            readyBtn.style.display = (state.game_started || state.players.find(p => p.id === myPlayerId)?.is_ready) ? 'none' : 'block';
-        });
-
-        // ==========================================================
-        // 🔑 LISTENER PER IL RISULTATO DEL DADO E MOVIMENTO INIZIALE
-        // ==========================================================
-        socket.on('dice roll result', async (moveResult) => {
-
-            isWaitingForAnimation = true;
-            rollDiceBtn.disabled = true;
-            
-            // Animazione dado
-            diceResult.textContent = moveResult.diceRoll; // ✅ FIX 3: Il dado viene aggiornato qui.
-            diceResult.classList.add('shake');
-            playSound('diceRoll');
-            
-            // Anima il movimento della pedina
-            setTimeout(() => {
-                diceResult.classList.remove('shake');
-                
-                // Usiamo moveResult.playerId che ora arriva corretto dal server
-                animateMove(
-                    moveResult.playerId, 
-                    moveResult.path, 
-                    moveResult.finalPosition,
-                    lastGameState.players 
-                ).then(() => {
-                    isWaitingForAnimation = false; 
-                    
-                    // Invia il messaggio al server per avviare la logica della casella (carta/statica)
-                    socket.emit('movement finished', moveResult);
-                });
-            }, 500); 
-        });
-
-        // ==========================================================
-        // LISTENER PER LA CARTA PESCATA (MOSTRA MODAL)
-        // ==========================================================
-        socket.on('card to draw', (eventData) => {
-            isWaitingForAnimation = false; 
-            
-            const card = eventData.card;
-            // const cardResult = eventData.cardResult; // Non usata direttamente qui
-            
-            playSound('cardDraw');
-            cardName.textContent = card.name;
-            cardText.textContent = card.text; 
-            cardEffectDesc.textContent = card.effect_desc;
-            
-            cardName.style.color = card.type === 'malus' ? '#ff3333' : (card.type === 'bonus' ? '#00ff80' : 'gold');
-            
-            // Memorizza il risultato completo della carta nell'input nascosto per l'invio
-            cardResultData.value = JSON.stringify(eventData);
-
-            cardModal.classList.add('show');
-            updateStatus(lastGameState); 
-            
-            // L'onclick ora usa i dati memorizzati
-            resolveCardBtn.onclick = () => {
-                cardModal.classList.remove('show');
-                
-                // Prepara l'oggetto da inviare al server
-                const fullCardData = JSON.parse(cardResultData.value);
-                
-                // Invia l'oggetto completo al server che ora gestisce l'effetto (incluso movimento cascata)
-                socket.emit('card effect request', fullCardData); 
-                rollDiceBtn.disabled = true; 
-                isWaitingForAnimation = true; 
-            };
-        });
-
-        // ==========================================================
-        // GESTIONE AGGIORNAMENTO DOPO EFFETTO CARTA (CASCATA)
-        // ==========================================================
-        socket.on('card effect update', async (data) => {
-            isWaitingForAnimation = true; 
-            
-            if (data.playerUpdates && data.playerUpdates.length > 0) {
-                
-                // Aggiorna lo stato locale con le nuove posizioni (per gli offset finali)
-                const playersAfterCard = lastGameState.players.map(p => {
-                    const update = data.playerUpdates.find(u => u.id === p.id);
-                    if (update) {
-                        return { ...p, position: update.newPos, skippedTurns: update.skippedTurns || p.skippedTurns }; 
-                    }
-                    return p;
-                });
-                lastGameState.players = playersAfterCard; 
-                
-                // Inizia le animazioni a cascata
-                const movePromises = data.playerUpdates.map(update => {
-                    return animateMove(update.id, update.path, update.newPos, playersAfterCard);
-                });
-                
-                await Promise.all(movePromises);
-                
-                // Dopo l'animazione, riposiziona con gli offset corretti
-                // Non serve chiamare updatePawns qui, perché l'ultimo step di animateMove
-                // si prende cura di posizionare le pedine con l'offset finale corretto.
-            }
-
-            // Invia al server che l'animazione è finita per passare il turno
-            socket.emit('card animation finished', data);
-            isWaitingForAnimation = false;
-        });
-
-        // Gestione fine gioco
-        socket.on('game end', (data) => {
-            const winner = lastGameState.players.find(p => p.id === data.winner);
-            showWin(winner);
-        });
-
-        // --------------------------------------------------
-        // 🔨 FUNZIONI DI SUPPORTO UI E LOG 
-        // --------------------------------------------------
         
-        function updateLog(gameLog) {
-            // Aggiorna solo se lo stato del log è cambiato
-            messageBox.innerHTML = ''; 
-            
-            gameLog.forEach(entry => {
-                const logEntry = document.createElement('div');
-                logEntry.className = `log-entry log-${entry.type}`; 
-                
-                // Correzione per la gestione dei doppi asterischi per il grassetto
-                let messageHTML = entry.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                
-                logEntry.innerHTML = `${messageHTML}`; 
-                
-                messageBox.prepend(logEntry);
-            });
-            
-            // 🚨 FIX 4: Correzione dello scroll. Lo scroll va sul container, non sul box, 
-            // ma dato che usiamo prepend (ultimo messaggio in cima),
-            // non è necessario forzare lo scroll a meno che non si voglia il primo elemento visibile.
-            // Logica alternativa: scrolla il container per vedere l'ultimo elemento.
-            // Se si usa prepend (messaggi dal più recente al più vecchio), non serve lo scroll.
-            // Rimuovo logContainer.scrollTop = 0; se il box è in column-reverse.
+        // Rimuove un elemento pedina (in caso di disconnessione)
+        function removePieceElement(playerId) {
+            const piece = pieceElements[playerId];
+            if (piece) {
+                board.removeChild(piece);
+                delete pieceElements[playerId];
+            }
         }
 
-        function updatePawns(players) {
-            // Mappa le posizioni attuali per calcolare gli offset corretti
-            const positions = {};
-            players.forEach(p => {
-                positions[p.position] = positions[p.position] || [];
-                positions[p.position].push(p);
+        // Funzione principale di rendering dello stato
+        function renderGameState(newState) {
+            gameState = newState;
+            
+            // 1. Aggiorna la lista dei giocatori / Pedine
+            const existingIds = Object.keys(pieceElements);
+            const newIds = gameState.players.map(p => p.id);
+
+            // Aggiungi nuove pedine
+            gameState.players.forEach(player => {
+                if (!pieceElements[player.id]) {
+                    createPieceElement(player); // This should create the piece if it doesn't exist
+                }
             });
 
-            let statusListHtml = ''; 
-
-            players.forEach(player => {
-                let pawn = document.getElementById(`pawn-${player.id}`); 
-                
-                if (!pawn) {
-                    pawn = document.createElement('div');
-                    pawn.id = `pawn-${player.id}`;
-                    pawn.className = 'pawn';
-                    pawn.innerHTML = `<span class="pawn-symbol" id="symbol-${player.id}">${player.symbol}</span><span class="pawn-name">${player.name}</span>`;
-                    board.appendChild(pawn);
-                    
-                    // Al primo inserimento, posiziona istantaneamente all'inizio
-                    movePawnToCell(pawn, player.position, 0); 
+            // Rimuovi pedine disconnesse
+            existingIds.forEach(id => {
+                if (!newIds.includes(id)) {
+                    removePieceElement(id);
                 }
-                
-                // Aggiornamento Z-Index e Active
-                pawn.style.zIndex = 10 + player.position; 
-                pawn.classList.remove('active-pawn');
-                
-                const symbolSpan = document.getElementById(`symbol-${player.id}`);
-                if (player.skippedTurns > 0) {
-                    pawn.classList.add('pawn-skipped');
-                    if(symbolSpan) symbolSpan.textContent = '🚫';
-                } else {
-                    pawn.classList.remove('pawn-skipped');
-                    if(symbolSpan) symbolSpan.textContent = player.symbol;
-                }
-
-                if (lastGameState && player.id === lastGameState.currentPlayerID) {
-                    pawn.classList.add('active-pawn');
-                    pawn.style.zIndex = 100; 
-                }
-                
-                // Calcola l'indice del giocatore sulla casella per l'offset
-                const playersOnCell = positions[player.position];
-                const playerIndexOnCell = playersOnCell.findIndex(p => p.id === player.id);
-
-                // Posiziona la pedina con l'offset solo se non siamo in movimento (in movimento lo fa animateMove)
-                if (!isWaitingForAnimation) {
-                    movePawnToCell(pawn, player.position, playerIndexOnCell);
-                }
-                
-                // Popola l'HTML per la lista di stato
-                statusListHtml += `<div class="player-entry ${player.id === lastGameState.currentPlayerID ? 'active-player' : ''}">
-                    <span style="font-weight: bold;">${player.name} ${player.symbol}</span> 
-                    - Pos: ${player.position}
-                    ${player.skippedTurns > 0 ? ` 🚫 Salta ${player.skippedTurns}` : ''}
-                </div>`;
             });
             
-            playerStatus.innerHTML = statusListHtml; 
-        }
-
-        /** Aggiorna il pannello di stato principale e lo stato del pulsante dado. */
-        function updateStatus(state) {
-            const currentPlayer = state.players.find(p => p.id === state.currentPlayerID);
-            const myPlayer = state.players.find(p => p.id === myPlayerId);
-            // ✅ FIX 5: Assicurati che isWaitingForAnimation sia sempre aggiornato prima di disabilitare il dado.
-            const isWaitingForCardModal = cardModal.classList.contains('show');
-
-            if (myPlayer) {
-                myPlayerInfo.innerHTML = `Sei: <span style="font-weight: bold;">${myPlayer.name} ${myPlayer.symbol}</span>`;
-            }
-
-            statusIcon.innerHTML = '';
-            mainStatusMessage.className = 'alert mt-2';
-            rollDiceBtn.disabled = true;
-            diceResult.classList.remove('shake');
-
-
-            if (state.game_started === false) {
-                mainStatusMessage.classList.add('alert-info');
-                statusText.textContent = `In attesa di almeno 2 giocatori e che tutti premano "Sono Pronto!" (${state.players.filter(p => p.is_ready).length}/${state.players.length})`;
-                readyBtn.style.display = myPlayer && !myPlayer.is_ready ? 'block' : 'none';
-                return;
-            }
-            
-            if (state.game_over) {
-                mainStatusMessage.classList.add('alert-danger');
-                statusText.textContent = "La partita è finita! 🏆";
-                return;
-            }
-            
-            readyBtn.style.display = 'none';
+            // 2. Aggiorna la Casella di Turno
+            const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerID);
+            const myPlayer = gameState.players.find(p => p.id === myId);
 
             if (currentPlayer) {
-                const isMyTurn = currentPlayer.id === myPlayerId;
+                turnDisplayName.textContent = currentPlayer.name;
+                turnDisplaySymbol.textContent = currentPlayer.symbol;
+                diceRoller.disabled = (currentPlayer.id !== myId || gameState.game_over);
                 
-                const shouldDisableRoll = !isMyTurn || isWaitingForAnimation || isWaitingForCardModal || currentPlayer.skippedTurns > 0;
-                rollDiceBtn.disabled = shouldDisableRoll;
-
-                if (isWaitingForAnimation) {
-                    statusText.textContent = "Movimento in corso...";
-                    mainStatusMessage.classList.remove('alert-info');
-                    mainStatusMessage.classList.add('alert-warning');
-                    statusIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                } else if (isWaitingForCardModal) {
-                    statusText.textContent = "Carta pescata! Risolvi l'effetto.";
-                    mainStatusMessage.classList.remove('alert-info');
-                    mainStatusMessage.classList.add('alert-warning');
-                    statusIcon.innerHTML = '<i class="fas fa-hand-paper"></i>'; 
-                } else if (isMyTurn) {
-                    if (myPlayer && myPlayer.skippedTurns > 0) {
-                        mainStatusMessage.classList.remove('alert-info');
-                        mainStatusMessage.classList.add('alert-danger');
-                        statusText.textContent = `Sei bloccato. Salterai ancora ${myPlayer.skippedTurns} turno/i.`;
-                        statusIcon.innerHTML = '<i class="fas fa-ban"></i>';
-                    } else {
-                        mainStatusMessage.classList.remove('alert-info', 'alert-warning');
-                        mainStatusMessage.classList.add('alert-success');
-                        statusText.textContent = "È il tuo turno! Tira il dado. 🎲";
-                        statusIcon.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                    }
+                if (currentPlayer.id === myId) {
+                    turnStatusMessage.textContent = gameState.game_over ? "Partita Terminata." : "È il tuo turno! Tira il dado.";
                 } else {
-                    statusText.textContent = `In attesa del turno di ${currentPlayer.name}...`;
-                    mainStatusMessage.classList.add('alert-info');
-                    statusIcon.innerHTML = '<i class="fas fa-user-clock"></i>';
+                    turnStatusMessage.textContent = gameState.game_over ? "Partita Terminata." : `Tocca a ${currentPlayer.name}...`;
                 }
-            }
-        }
-        
-        function showWin(winner) {
-            playSound('win');
-            winnerMessage.innerHTML = `${winner.name} ${winner.symbol} ha vinto la **Royal Rumble**!`;
-            winModal.classList.add('show');
-            rollDiceBtn.disabled = true;
-        }
 
-        // --------------------------------------------------
-        // 🖱️ GESTIONE INTERAZIONE UTENTE
-        // --------------------------------------------------
-        
-        joinGameBtn.addEventListener('click', () => {
-            const nickname = playerNicknameInput.value.trim();
-            if (nickname.length >= 3 && nickname.length <= 15) { 
-                myPlayerName = nickname;
-                nameInputModal.classList.remove('show');
-                // Al primo join, il client deve conoscere il suo ID del socket
-                // L'ID è già settato nel listener 'connect', ma lo ri-invia se necessario
-                socket.emit('set player name', nickname); 
+                // Indica se il giocatore deve saltare il turno
+                if (currentPlayer.skippedTurns > 0) {
+                     turnStatusMessage.textContent = `${currentPlayer.name} deve saltare il turno! (${currentPlayer.skippedTurns} rimanenti)`;
+                     diceRoller.disabled = (currentPlayer.id !== myId || gameState.game_over);
+                     if (currentPlayer.id === myId && !gameState.game_over) {
+                         // Se è il giocatore locale e deve saltare, il client non dovrebbe tirare, ma
+                         // il server gestirà il passaggio automatico quando si tenta il roll.
+                     }
+                }
+
             } else {
-                console.error("Inserisci un nickname da 3 a 15 caratteri!");
-                // Potresti aggiungere qui una logica UI per notificare l'utente
+                turnDisplayName.textContent = "In attesa di giocatori...";
+                turnDisplaySymbol.textContent = "🎲";
+                diceRoller.disabled = true;
+                turnStatusMessage.textContent = "Non abbastanza giocatori o partita terminata.";
             }
+            
+            // 3. Rimuovi overlay se non sono più necessari
+            if (gameState.currentPlayerID === myId) {
+                 if (cardModal.classList.contains('flex') && diceRoller.disabled) {
+                    // Se il giocatore è quello di turno e il dado è disabilitato, il modal dovrebbe essere aperto
+                 } else {
+                    cardModal.classList.add('hidden');
+                    cardModal.classList.remove('flex');
+                 }
+            } else {
+                cardModal.classList.add('hidden');
+                cardModal.classList.remove('flex');
+            }
+            
+            // 4. Aggiorna la UI del tabellone
+            updateBoardUI();
+            
+            // 5. Aggiorna il log
+            renderLog();
+            
+            // 6. Finestra di Vittoria
+            if (gameState.game_over) {
+                 const winner = gameState.players.find(p => p.position === TOTAL_CELLS);
+                 if (winner) {
+                    winMessage.textContent = `${winner.name} ${winner.symbol} ha eseguito la sua Finisher ed ha vinto la partita!`;
+                 } else {
+                    winMessage.textContent = `La partita è terminata!`;
+                 }
+                 winModal.classList.add('flex');
+                 winModal.classList.remove('hidden');
+            } else {
+                 winModal.classList.add('hidden');
+                 winModal.classList.remove('flex');
+            }
+        }
+        
+        // Ridisegna le caselle e riposiziona le pedine
+        function updateBoardUI() {
+            cellElements.forEach(cell => {
+                const pos = parseInt(cell.textContent);
+                
+                // Reset classi
+                cell.classList.remove('cell-card', 'cell-current');
+                
+                // Caselle Carta
+                if (gameState.cardDrawCells.includes(pos)) {
+                    cell.classList.add('cell-card');
+                }
+                
+                // Casella Finale
+                if (pos === TOTAL_CELLS) {
+                    cell.classList.add('cell-current');
+                    cell.textContent = "THE FINISH!";
+                } else if (pos === 1) {
+                    cell.textContent = "START";
+                } else {
+                    cell.textContent = pos;
+                }
+            });
+            
+            // Riposiziona le pedine
+            updatePiecesPosition();
+        }
+
+        function renderLog() {
+            gameLog.innerHTML = '';
+            gameState.gameLog.forEach(entry => {
+                const logItem = document.createElement('div');
+                let colorClass = '';
+                
+                switch(entry.type) {
+                    case 'dice': colorClass = 'log-dice'; break;
+                    case 'card': colorClass = 'log-card'; break;
+                    case 'malus': colorClass = 'log-malus'; break;
+                    case 'bonus': colorClass = 'log-bonus'; break;
+                    case 'win': colorClass = 'log-win'; break;
+                    case 'effect': colorClass = 'log-effect'; break;
+                    case 'error': colorClass = 'log-error'; break;
+                    default: colorClass = ''; 
+                }
+                
+                logItem.className = `log-item p-1 border-b border-gray-700 ${colorClass}`;
+                logItem.innerHTML = `<span class="text-xs text-gray-500 mr-2">[${entry.timestamp}]</span> ${entry.message}`;
+                gameLog.appendChild(logItem);
+            });
+            // Scorrimento automatico in alto per i log (unshift lato server)
+            gameLog.scrollTop = 0; 
+        }
+
+        // --- GESTIONE DEGLI EVENTI LATO CLIENT ---
+        
+        // 1. DADO / MOVIMENTO
+        diceRoller.addEventListener('click', () => {
+            if (diceRoller.disabled) return;
+            // Blocca il dado immediatamente dopo la richiesta
+            diceRoller.disabled = true;
+            socket.emit('roll dice request');
+            lastRollDisplay.textContent = '?';
         });
 
-        playerNicknameInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                joinGameBtn.click();
+        socket.on('dice roll result', async (result) => {
+            renderGameState(result); // Aggiorna lo stato (posizioni logiche)
+            
+            const moveResult = result.moveResult;
+            const player = gameState.players.find(p => p.id === moveResult.playerId);
+            
+            if (player) {
+                await animateDice(moveResult.diceRoll);
+                // FIX SICUREZZA: Assicura che l'elemento pedina esista, risolvendo race condition.
+                createPieceElement(player); 
+                await animateMove(player, moveResult.path);
             }
-        });
+            
+            // Ri-aggiorna la posizione finale e lo stato della UI dopo l'animazione
+            updatePiecesPosition();
+            renderLog(); 
 
-        rollDiceBtn.addEventListener('click', () => {
-            if (!rollDiceBtn.disabled && !isWaitingForAnimation) {
-                rollDiceBtn.disabled = true; 
-                isWaitingForAnimation = true; 
-                socket.emit('roll dice request');
+            // Comunica al server che il movimento è finito
+            socket.emit('movement finished', moveResult); 
+            
+            // Se non c'è carta e non è finito, il server ha già passato il turno, quindi il dado sarà gestito dal prossimo giocatore
+            if (moveResult.isNewTurn) {
+                // Se non è il mio turno, abilita il dado solo al prossimo giocatore
+            } else if (moveResult.event && moveResult.event.type === 'card' && player.id === myId) {
+                // Se c'è una carta, mostra il modal per il giocatore che l'ha pescata
+                 showCardModal(moveResult.event.data);
+            } else {
+                // Se non c'è carta ma non è un nuovo turno (es. non ha raggiunto il 100), riabilita il dado per il giocatore corrente
+                diceRoller.disabled = (player.id !== myId || gameState.game_over);
             }
         });
         
-        readyBtn.addEventListener('click', () => {
-            readyBtn.disabled = true;
-            socket.emit('ready');
+        // 2. CARTA / EFFETTO
+        function showCardModal(card) {
+            const typeClass = card.type === 'bonus' ? 'card-bonus' : card.type === 'malus' ? 'card-malus' : 'card-special';
+            
+            cardContainer.className = `card-container rounded-xl p-6 w-full max-w-md text-white text-center ${typeClass}`;
+            cardTitle.textContent = card.name;
+            cardText.textContent = card.text;
+            cardEffectDesc.textContent = card.effect_desc;
+            
+            cardCloseBtn.textContent = "OK, Subisci l'Effetto!";
+            
+            // Forza il riposizionamento della carta Eddie se già pescata
+            if (card.name === "I lie, i cheat, I steal!" && gameState.players.find(p => p.id === myId).position >= 40) {
+                 cardEffectDesc.textContent = "Nessun effetto, sei già oltre la casella di arrivo!";
+            }
+
+            cardCloseBtn.onclick = () => {
+                // Nascondi modal
+                cardModal.classList.add('hidden');
+                cardModal.classList.remove('flex');
+                
+                // Richiesta al server di applicare l'effetto
+                diceRoller.disabled = true; // Mantieni il dado bloccato durante l'effetto
+                socket.emit('card effect request', card);
+            };
+
+            cardModal.classList.remove('hidden');
+            cardModal.classList.add('flex');
+        }
+
+        socket.on('card effect update', async (result) => {
+            renderGameState(result); // Aggiorna lo stato (posizioni logiche e log)
+            
+            const animationPromises = result.playerUpdates.map(update => {
+                const player = gameState.players.find(p => p.id === update.id);
+                
+                if (player) {
+                    // FIX SICUREZZA: Assicura che l'elemento pedina esista.
+                    createPieceElement(player); 
+                    // Il path è un array di caselle da attraversare. Player.position è la posizione finale logica.
+                    return animateMove(player, update.path);
+                }
+                return Promise.resolve();
+            });
+            
+            await Promise.all(animationPromises);
+            
+            // Dopo che tutte le animazioni sono finite
+            updatePiecesPosition();
+            renderLog();
+            
+            // 1. Cascata: Se c'è una carta a cascata, chiedi immediatamente al server l'effetto della nuova carta.
+            if (result.cascadedCard && result.cascadedCard.playerID === myId) {
+                // Mostra il modal per la carta cascata (e l'utente cliccherà OK)
+                showCardModal(result.cascadedCard.card);
+                return;
+            }
+
+            // 2. Extra Turn: Se c'è un turno extra, riabilita il dado per il giocatore corrente.
+            if (result.extraTurn && result.cardApplied.playerID === myId) {
+                diceRoller.disabled = false;
+                turnStatusMessage.textContent = "Hai guadagnato un turno extra! Tira di nuovo.";
+            } 
+            
+            // 3. Fine Logica: Comunica al server che l'animazione della carta è finita
+            socket.emit('card animation finished', result);
+            
+            // Riabilita il dado se tocca al giocatore corrente
+            const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerID);
+            if (currentPlayer && currentPlayer.id === myId && !result.extraTurn) {
+                diceRoller.disabled = false;
+            }
         });
         
+        // 3. EVENTI GENERALI
+        socket.on('connect', () => {
+            myId = socket.id;
+            myIdDisplay.textContent = myId;
+            createBoard(); // Inizializza la prima volta
+            
+            // Carica il nome salvato in localStorage
+            const savedName = localStorage.getItem('playerName');
+            if (savedName) {
+                playerNameInput.value = savedName;
+                socket.emit('set player name', savedName);
+            }
+        });
+
+        socket.on('game state update', (newState) => {
+            renderGameState(newState);
+            
+            // Aggiorna il simbolo locale appena lo stato è pronto
+            const myPlayer = newState.players.find(p => p.id === myId);
+            if (myPlayer) {
+                mySymbolDisplay.textContent = `Sei ${myPlayer.symbol}`;
+            }
+        });
+        
+        // 4. INTERAZIONI UI
+        playerNameInput.addEventListener('change', (e) => {
+            const newName = e.target.value.trim().substring(0, 15);
+            localStorage.setItem('playerName', newName);
+            socket.emit('set player name', newName);
+        });
+        
+        restartGameBtn.addEventListener('click', () => {
+             socket.emit('start new game request');
+        });
+        
+        window.addEventListener('resize', () => {
+            // Ricalcola la posizione delle pedine al ridimensionamento
+            updatePiecesPosition();
+        });
+
+        // Inizializzazione
+        createBoard();
+        updatePiecesPosition();
+
     </script>
 </body>
 </html>
