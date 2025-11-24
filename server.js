@@ -838,39 +838,34 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ✅ CORREZIONE: Listener di conferma di fine animazione effetto carta
-    socket.on('card animation finished', (result) => {
-        
-        // Prevenzione errori: assicurarsi che ci sia un giocatore corrente
-        if (gameState.players.length === 0) return;
-        const currentPlayer = gameState.players[gameState.currentTurnIndex];
-        
-        // Verifica se l'evento è per il giocatore corretto
-        if (result && currentPlayer && result.cardApplied.playerID === currentPlayer.id) {
+// ✅ CORREZIONE: Listener di conferma di fine animazione effetto carta
+socket.on('card animation finished', (result) => {
+    
+    // ... (omissis, controlli di sicurezza)
+    
+    // Verifica se l'evento è per il giocatore corretto
+    if (result && currentPlayer && result.cardApplied.playerID === currentPlayer.id) {
 
-            // Caso 1: Vittoria
-            if (result.win) {
-                emitGameState(); 
-            } 
-            // Caso 2: Cascata (pesca subito la prossima carta)
-            else if (result.cascadedCard) {
-                // Se c'è una cascata, il server invia un nuovo evento 'card to draw' immediatamente.
-                io.emit('card to draw', {
-                    card: result.cascadedCard.card,
-                    playerID: result.cascadedCard.playerID
-                });
-            } 
-            // Caso 3: Nessun effetto imprevisto (extra turn o turno normale)
-            else {
-                // Se non c'è extraTurn, il turno è già stato gestito (nextTurnLogic chiamato in processCardEffect).
-                // Se c'era un extraTurn, il turno rimane a lui.
-                if (!result.extraTurn) {
-                    nextTurnLogic(); // Passa il turno se non era extra turn.
-                } 
-                emitGameState(); 
-            }
+        // Caso 1: Vittoria
+        if (result.win) {
+            // Non fare nulla, la partita è finita.
+        } 
+        // Caso 2: Cascata (pesca subito la prossima carta)
+        else if (result.cascadedCard) {
+            io.emit('card to draw', {
+                card: result.cascadedCard.card,
+                playerID: result.cascadedCard.playerID
+            });
+            // NON chiamare emitGameState, il client attende l'effetto della prossima carta.
+        } 
+        // Caso 3: Fine turno (normale o extra)
+        else {
+            // nextTurnLogic() è GIA' stato chiamato da processCardEffect se non era extraTurn.
+            // Se era extraTurn, l'indice è rimasto a lui (corretto).
+            emitGameState(); // Aggiorna lo stato finale (e il prossimo giocatore)
         }
-    });
+    }
+});
 
 
     socket.on('disconnect', () => {
