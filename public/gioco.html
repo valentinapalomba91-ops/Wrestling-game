@@ -10,7 +10,6 @@
     
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
-    <!-- Lo stile deve essere fornito separatamente o qui, assumo sia su /style.css -->
     <style>
         :root {
             --cell-size: 8vh;
@@ -361,11 +360,9 @@
             <div id="log-container" class="log-container">
                 <div class="log-title">Cronologia Eventi 📜</div>
                 <div id="message-box" class="mt-1">
-                    <!-- Messaggi di log qui -->
-                </div> 
+                    </div> 
             </div>
             
-            <!-- Bottone Pronto per iniziare il gioco -->
             <button id="ready-btn" class="btn btn-success mt-3">Sono Pronto!</button>
         </section>
 
@@ -375,18 +372,15 @@
         </section>
     </main>
     
-    <!-- Modale Carta -->
     <div id="card-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 id="card-name">Carta Speciale!</h2>
             <p id="card-text"></p>
             <div id="card-effect-desc" class="effect-text"></div>
             <button id="resolve-card-btn" class="dice-btn mt-3">OK!</button>
-            <input type="hidden" id="card-result-data"> <!-- Per memorizzare l'oggetto cardResult -->
-        </div>
+            <input type="hidden" id="card-result-data"> </div>
     </div>
 
-    <!-- Modale Vittoria -->
     <div id="win-modal" class="modal-overlay">
         <div class="modal-content winner-bg">
             <h2>CONGRATULAZIONI!</h2>
@@ -394,7 +388,6 @@
         </div>
     </div>
 
-    <!-- 🚨 FIX CRITICO: Inclusione della libreria Socket.IO -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
         // ==========================================================
@@ -413,7 +406,7 @@
         const mainStatusMessage = document.getElementById('main-status-message');
         const statusIcon = document.getElementById('status-icon');
         const statusText = document.getElementById('status-text');
-        const readyBtn = document.getElementById('ready-btn'); // Nuovo bottone Pronto
+        const readyBtn = document.getElementById('ready-btn'); 
 
         const board = document.getElementById('board');
         const rollDiceBtn = document.getElementById('roll-dice-btn');
@@ -425,7 +418,7 @@
         const cardName = document.getElementById('card-name');
         const cardText = document.getElementById('card-text');
         const cardEffectDesc = document.getElementById('card-effect-desc');
-        const cardResultData = document.getElementById('card-result-data'); // Input nascosto per il risultato della carta
+        const cardResultData = document.getElementById('card-result-data'); 
         const winModal = document.getElementById('win-modal');
         const winnerMessage = document.getElementById('winner-message');
         const audioToggleBtn = document.getElementById('audio-toggle-btn');
@@ -435,16 +428,16 @@
         let lastGameState = null;
         let isWaitingForAnimation = false; 
         let myPlayerName = ''; 
-        let myPlayerId = null; // 🚨 ID del giocatore locale
+        let myPlayerId = null; 
 
         // Variabili audio
         let audioEnabled = true;
         const sounds = {
-            // Nota: per funzionare, i file audio devono essere presenti nella cartella 'public/'
+            // ✅ FIX 1: Corretto il riferimento a 'vittoria.mp3'
             diceRoll: new Audio('dado.mp3'), 
             cardDraw: new Audio('card.wav'),
             move: new Audio('pedina.wav'),
-            win: new Audio('victory.mp3')
+            win: new Audio('vittoria.mp3') 
         };
         // Aggiungi un listener per gestire il caricamento non riuscito dei file audio
         Object.values(sounds).forEach(s => {
@@ -461,6 +454,7 @@
             if (audioEnabled && sounds[soundKey]) {
                 const sound = sounds[soundKey];
                 sound.currentTime = 0;
+                // Gestione della promessa per l'autoplay (necessario per molti browser)
                 sound.play().catch(e => {
                     // console.error("Audio error: L'utente non ha interagito con la pagina, impossibile riprodurre l'audio.", e);
                 });
@@ -547,8 +541,12 @@
         /** Muove la pedina nel CSS alla posizione finale della casella, applicando l'offset. */
         function movePawnToCell(pawn, cellNumber, playerIndexOnCell) {
             const cell = document.getElementById(`cell-${cellNumber}`);
-            if (!cell) return;
+            if (!cell) {
+                console.error(`Cella non trovata per il numero: ${cellNumber}`);
+                return;
+            }
 
+            // Ottenere le coordinate della cella rispetto al container del tabellone
             const cellRect = cell.getBoundingClientRect();
             const boardRect = board.getBoundingClientRect();
             
@@ -568,10 +566,17 @@
 
         /** Esegue l'animazione di movimento su un percorso di caselle */
         function animateMove(playerId, path, finalPosition, allPlayers) {
+            // ✅ FIX 2: La pedina viene creata in updatePawns, ma assicuriamoci che l'ID sia valido prima di tutto.
+            if (!playerId) {
+                console.error("ERRORE CRITICO: Pedina non trovata, l'ID è nullo o indefinito. Animazione saltata.");
+                return Promise.resolve(); 
+            }
+            
             const pawn = document.getElementById(`pawn-${playerId}`); 
             
             if (!pawn) {
-                console.error("ERRORE CRITICO: Pedina non trovata per l'ID:", playerId, "Animazione saltata.");
+                // Questo non dovrebbe succedere se updatePawns è stato chiamato correttamente prima del dado
+                console.error(`ERRORE CRITICO: Pedina non trovata per l'ID: ${playerId}. Animazione saltata.`);
                 return Promise.resolve(); 
             }
 
@@ -604,6 +609,7 @@
                     }, delay - 50); 
 
                     setTimeout(() => {
+                        // Durante l'animazione, usa offset 0 per evitare salti visivi
                         movePawnToCell(pawn, cellNumber, 0); 
                         
                         if (index > 0) {
@@ -617,7 +623,6 @@
                             setTimeout(() => {
                                 // Trova l'indice della pedina sulla casella finale per l'offset corretto
                                 const playersOnFinalCell = allPlayers.filter(p => p.position === finalPosition);
-                                // ✅ FIX: Corretto il bug di logica per l'offset
                                 const playerIndexOnFinalCell = playersOnFinalCell.findIndex(p => p.id === playerId); 
                                 
                                 pawn.style.transition = 'transform 0.3s ease-out'; 
@@ -689,7 +694,7 @@
             rollDiceBtn.disabled = true;
             
             // Animazione dado
-            diceResult.textContent = moveResult.diceRoll;
+            diceResult.textContent = moveResult.diceRoll; // ✅ FIX 3: Il dado viene aggiornato qui.
             diceResult.classList.add('shake');
             playSound('diceRoll');
             
@@ -719,7 +724,7 @@
             isWaitingForAnimation = false; 
             
             const card = eventData.card;
-            const cardResult = eventData.cardResult;
+            // const cardResult = eventData.cardResult; // Non usata direttamente qui
             
             playSound('cardDraw');
             cardName.textContent = card.name;
@@ -760,7 +765,7 @@
                 const playersAfterCard = lastGameState.players.map(p => {
                     const update = data.playerUpdates.find(u => u.id === p.id);
                     if (update) {
-                        return { ...p, position: update.newPos }; 
+                        return { ...p, position: update.newPos, skippedTurns: update.skippedTurns || p.skippedTurns }; 
                     }
                     return p;
                 });
@@ -774,7 +779,8 @@
                 await Promise.all(movePromises);
                 
                 // Dopo l'animazione, riposiziona con gli offset corretti
-                updatePawns(lastGameState.players);
+                // Non serve chiamare updatePawns qui, perché l'ultimo step di animateMove
+                // si prende cura di posizionare le pedine con l'offset finale corretto.
             }
 
             // Invia al server che l'animazione è finita per passare il turno
@@ -800,17 +806,24 @@
                 const logEntry = document.createElement('div');
                 logEntry.className = `log-entry log-${entry.type}`; 
                 
-                let messageHTML = entry.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1');
+                // Correzione per la gestione dei doppi asterischi per il grassetto
+                let messageHTML = entry.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 
                 logEntry.innerHTML = `${messageHTML}`; 
                 
                 messageBox.prepend(logEntry);
             });
             
-            logContainer.scrollTop = 0;
+            // 🚨 FIX 4: Correzione dello scroll. Lo scroll va sul container, non sul box, 
+            // ma dato che usiamo prepend (ultimo messaggio in cima),
+            // non è necessario forzare lo scroll a meno che non si voglia il primo elemento visibile.
+            // Logica alternativa: scrolla il container per vedere l'ultimo elemento.
+            // Se si usa prepend (messaggi dal più recente al più vecchio), non serve lo scroll.
+            // Rimuovo logContainer.scrollTop = 0; se il box è in column-reverse.
         }
 
         function updatePawns(players) {
+            // Mappa le posizioni attuali per calcolare gli offset corretti
             const positions = {};
             players.forEach(p => {
                 positions[p.position] = positions[p.position] || [];
@@ -828,8 +841,12 @@
                     pawn.className = 'pawn';
                     pawn.innerHTML = `<span class="pawn-symbol" id="symbol-${player.id}">${player.symbol}</span><span class="pawn-name">${player.name}</span>`;
                     board.appendChild(pawn);
+                    
+                    // Al primo inserimento, posiziona istantaneamente all'inizio
+                    movePawnToCell(pawn, player.position, 0); 
                 }
                 
+                // Aggiornamento Z-Index e Active
                 pawn.style.zIndex = 10 + player.position; 
                 pawn.classList.remove('active-pawn');
                 
@@ -851,8 +868,10 @@
                 const playersOnCell = positions[player.position];
                 const playerIndexOnCell = playersOnCell.findIndex(p => p.id === player.id);
 
-                // Posiziona la pedina con l'offset
-                movePawnToCell(pawn, player.position, playerIndexOnCell);
+                // Posiziona la pedina con l'offset solo se non siamo in movimento (in movimento lo fa animateMove)
+                if (!isWaitingForAnimation) {
+                    movePawnToCell(pawn, player.position, playerIndexOnCell);
+                }
                 
                 // Popola l'HTML per la lista di stato
                 statusListHtml += `<div class="player-entry ${player.id === lastGameState.currentPlayerID ? 'active-player' : ''}">
@@ -869,6 +888,7 @@
         function updateStatus(state) {
             const currentPlayer = state.players.find(p => p.id === state.currentPlayerID);
             const myPlayer = state.players.find(p => p.id === myPlayerId);
+            // ✅ FIX 5: Assicurati che isWaitingForAnimation sia sempre aggiornato prima di disabilitare il dado.
             const isWaitingForCardModal = cardModal.classList.contains('show');
 
             if (myPlayer) {
@@ -878,14 +898,14 @@
             statusIcon.innerHTML = '';
             mainStatusMessage.className = 'alert mt-2';
             rollDiceBtn.disabled = true;
+            diceResult.classList.remove('shake');
 
-            if (state.game_started === false && state.players.length > 0 && state.players.every(p => p.is_ready)) {
-                 // Caso strano: tutti pronti ma non iniziato (dovrebbe essere gestito dal server)
-                 mainStatusMessage.classList.add('alert-success');
-                 statusText.textContent = "Partita pronta. In attesa di avvio...";
-            } else if (state.game_started === false) {
-                 mainStatusMessage.classList.add('alert-info');
-                 statusText.textContent = `In attesa di almeno 2 giocatori e che tutti premano "Sono Pronto!" (${state.players.filter(p => p.is_ready).length}/${state.players.length})`;
+
+            if (state.game_started === false) {
+                mainStatusMessage.classList.add('alert-info');
+                statusText.textContent = `In attesa di almeno 2 giocatori e che tutti premano "Sono Pronto!" (${state.players.filter(p => p.is_ready).length}/${state.players.length})`;
+                readyBtn.style.display = myPlayer && !myPlayer.is_ready ? 'block' : 'none';
+                return;
             }
             
             if (state.game_over) {
@@ -894,8 +914,7 @@
                 return;
             }
             
-            diceResult.classList.remove('shake');
-
+            readyBtn.style.display = 'none';
 
             if (currentPlayer) {
                 const isMyTurn = currentPlayer.id === myPlayerId;
@@ -920,7 +939,7 @@
                         statusText.textContent = `Sei bloccato. Salterai ancora ${myPlayer.skippedTurns} turno/i.`;
                         statusIcon.innerHTML = '<i class="fas fa-ban"></i>';
                     } else {
-                        mainStatusMessage.classList.remove('alert-info');
+                        mainStatusMessage.classList.remove('alert-info', 'alert-warning');
                         mainStatusMessage.classList.add('alert-success');
                         statusText.textContent = "È il tuo turno! Tira il dado. 🎲";
                         statusIcon.innerHTML = '<i class="fas fa-arrow-right"></i>';
@@ -949,10 +968,12 @@
             if (nickname.length >= 3 && nickname.length <= 15) { 
                 myPlayerName = nickname;
                 nameInputModal.classList.remove('show');
+                // Al primo join, il client deve conoscere il suo ID del socket
+                // L'ID è già settato nel listener 'connect', ma lo ri-invia se necessario
                 socket.emit('set player name', nickname); 
             } else {
-                // Sostituito alert() con console log o UI temporanea
                 console.error("Inserisci un nickname da 3 a 15 caratteri!");
+                // Potresti aggiungere qui una logica UI per notificare l'utente
             }
         });
 
